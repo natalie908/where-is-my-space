@@ -7,7 +7,7 @@
                  (x, y = střed v % šířky/výšky videa, velikost = průměr v % šířky).
                  Nejsnáz je doladíš přes index.html?edit – souřadnice se vypíšou
                  do konzole (F12) a stačí je sem zkopírovat.
-  + chaos      – typy obsahu v síti (barva, velikost tečky, četnost, popisky),
+  + chaos      – paleta (váhy barev, záře), typy obsahu (velikost tečky, popisky),
                  popisky pro příběh (zelené / červené) a věta dole.
                  Technické ladění sítě (počet větví, rychlost…) je v chaos.js nahoře.
   + feed       – nadpis, sekce, popisky, screenshoty, akce týdne, závěrečná věta.
@@ -30,37 +30,46 @@ window.OBSAH = {
     paleta: {
       pozadi: "#0A090B",       // teplá černá
       zrno: 0.06,              // síla filmového zrna a škrábanců (0 = vypnuto)
-      typy: {                  // barvy uzlů a větví podle typu obsahu
-        cervena: "#F2271C",    // extremismus / politika / rage bait
-        zluta:   "#C9E24B",    // reels / virální videa
-        ruzova:  "#F28AA0",    // reklama
-        modra:   "#C21FB4",    // doporučené stránky
-        azurova: "#A98BE6",    // lidé, které možná znáte
-        zelena:  "#22C7B0",    // zajímavé věci (jóga, přednáška, festival, kamarádka)
+
+      // Barevné skupiny. vaha = podíl barevné plochy v síti (v %),
+      // barvy = odstíny skupiny, typ = jaký obsah barva znamená (popisek po najetí),
+      // bez typu = výplňové větve a chomáče bez popisku.
+      // zare = velikost záře kolem uzlu (1 = běžná), uzly: false = větve bez teček.
+      skupiny: {
+        ruzova:    { vaha: 25, barvy: ["#F28AA0", "#F4B8CB"], typ: "reklama",     zare: 1 },
+        tyrkysova: { vaha: 20, barvy: ["#22C7B0", "#1E8FA8"], typ: "zajimave",    zare: 1.1 },
+        fialova:   { vaha: 15, barvy: ["#A98BE6", "#7B4FD6"], typ: "lide",        zare: 1 },
+        magenta:   { vaha: 10, barvy: ["#C21FB4"],            typ: "doporucene",  zare: 1.1 },
+        bila:      { vaha: 10, barvy: ["#ECE8F0"],                                zare: 1.7, mlecna: true },
+        limetkova: { vaha: 8,  barvy: ["#C9E24B"],            typ: "virali",      zare: 1 },
+        modra:     { vaha: 5,  barvy: ["#2E3FD1"],                                uzly: false },
+        cervena:   { vaha: 4,  barvy: ["#F2271C"],            typ: "extremismus", zare: 2 },
+        olivova:   { vaha: 3,  barvy: ["#6E9A3A", "#8A5A2B"],                     uzly: false },
       },
-      vypln: ["#2E3FD1", "#6E9A3A"], // výplňové větve bez uzlu (střídají se)
+      zareSila: 1,             // celková síla záře uzlů (0 = žádná, 1 = běžná, 2 = silná)
+      chomace: ["bila", "ruzova", "tyrkysova"], // skupiny, které mají chomáče častěji
+
       stred: "#22C7B0",        // barva středu při zklidnění
       rudy: "#F2271C",         // rudý signál v příběhu
       text: "#FFFFFF",         // věta dole
       zvyrazneni: "#F2271C",   // *zvýrazněné slovo* ve větě dole
     },
 
-    // Typy obsahu v síti. Barvy jsou v paletě výše, velikost = poloměr tečky
-    // (kolik pozornosti to bere), cetnost = jak často se typ v síti objevuje,
+    // Typy obsahu: velikost = poloměr tečky (kolik pozornosti to bere),
     // popisky = co se ukáže po najetí / klepnutí na tečku.
-    // Názvy typů (cervena, zelena…) neměň – podle nich funguje příběh.
+    // Názvy typů neměň – podle nich funguje paleta a příběh.
     typy: {
-      cervena: { velikost: 2.8, cetnost: 22,
+      extremismus: { velikost: 3.4,
         popisky: ["rage bait", "polarizing post", "political outrage", "misleading headline", "comment war"] },
-      zluta:   { velikost: 2.1, cetnost: 22,
+      virali:      { velikost: 2.0,
         popisky: ["reels", "viral video", "trending", "meme", "live video", "celebrity gossip"] },
-      ruzova:  { velikost: 1.9, cetnost: 22,
+      reklama:     { velikost: 1.9,
         popisky: ["ad", "sponsored", "shop now", "crypto ad", "fake discount", "giveaway", "influencer post"] },
-      modra:   { velikost: 1.6, cetnost: 18,
+      doporucene:  { velikost: 1.7,
         popisky: ["suggested for you", "suggested page", "quiz", "horoscope", "game invite", "memories"] },
-      azurova: { velikost: 1.4, cetnost: 14,
+      lide:        { velikost: 1.5,
         popisky: ["people you may know", "friend suggestion", "follow suggestion"] },
-      zelena:  { velikost: 1.2, cetnost: 4,
+      zajimave:    { velikost: 1.4,
         popisky: ["yoga event in Brno", "photo from a friend", "interesting article", "festival", "lecture", "design meetup"] },
     },
 
