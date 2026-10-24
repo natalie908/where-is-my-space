@@ -431,18 +431,20 @@ html, body {
   transition: opacity 300ms ease, visibility 0s linear 300ms;
 }
 .lightbox.is-open { opacity: 1; visibility: visible; transition: opacity 300ms ease, visibility 0s; }
-/* nikdy větší než skutečné rozlišení obrázku → zůstane ostrý */
-.lightbox img {
+/* obrázky pod sebou; nikdy větší než skutečné rozlišení → zůstanou ostré */
+.lightbox-list { padding: 64px 16px 48px; }
+.lightbox-list img {
   display: block;
   width: auto;
-  max-width: calc(100% - 32px);
+  max-width: 100%;
   height: auto;
-  margin: 0 auto;
-  padding: 64px 0 48px;
+  margin: 0 auto 32px;
 }
+.lightbox-list img:last-child { margin-bottom: 0; }
 /* na mobilu dvojnásobná šířka obrazovky (pořád menší než originál), posouvá se do stran */
 @media (max-width: 899px) {
-  .lightbox img { width: 200vw; max-width: none; margin: 0 12px; padding: 64px 0 40px; }
+  .lightbox-list { width: max-content; padding: 64px 12px 40px; }
+  .lightbox-list img { width: 200vw; max-width: none; margin-left: 0; margin-right: 0; }
 }
 .lightbox-close {
   position: fixed;

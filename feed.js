@@ -78,7 +78,7 @@
   }
 
   // screenshot bez karty (průhledný); klepnutí ho zvětší s původním černým pozadím
-  function screenFigure(o) {
+  function screenFigure(o, list, idx) {
     var fig = el("figure", "screen");
     var img = new Image();
     img.alt = "";
@@ -89,7 +89,7 @@
     fig.setAttribute("role", "button");
     fig.setAttribute("tabindex", "0");
     fig.setAttribute("aria-label", "Zvětšit");
-    var open = function () { lightbox(o.velky || o.src); };
+    var open = function () { lightbox(list.map(function (x) { return x.velky || x.src; }), idx); };
     fig.addEventListener("click", open);
     fig.addEventListener("keydown", function (e) { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); open(); } });
     return fig;
@@ -97,22 +97,37 @@
 
   // zvětšený obrázek přes celou obrazovku; zavře se klepnutím nebo Esc
   var box = null;
-  function lightbox(src) {
+  // všechny screenshoty sekce pod sebou – mezi nimi se scrolluje, otevře se na tom, na který se kleplo
+  function lightbox(srcs, idx) {
     if (!box) {
       box = el("div", "lightbox");
       box.setAttribute("role", "dialog");
-      box.setAttribute("aria-label", "Zvětšený obrázek");
+      box.setAttribute("aria-label", "Zvětšené obrázky");
       box.appendChild(el("button", "lightbox-close", "×"));
-      box.appendChild(new Image());
+      box.appendChild(el("div", "lightbox-list"));
       box.addEventListener("click", closeBox);
       document.addEventListener("keydown", function (e) {
         if (e.key === "Escape" && box.classList.contains("is-open")) { e.stopImmediatePropagation(); closeBox(); }
       }, true);
       document.body.appendChild(box);
     }
-    box.querySelector("img").src = src;
-    box.scrollTop = 0;
+    var listEl = box.querySelector(".lightbox-list");
+    listEl.innerHTML = "";
+    var imgs = srcs.map(function (src) {
+      var img = new Image();
+      img.alt = "";
+      img.src = src;
+      listEl.appendChild(img);
+      return img;
+    });
     box.classList.add("is-open");
+    box.scrollTop = 0;
+    box.scrollLeft = 0;
+    var target = imgs[idx || 0];
+    var go = function () { if (idx) box.scrollTop = target.offsetTop - 56; };
+    if (target.complete) go(); else target.addEventListener("load", go, { once: true });
+    // když se předchozí obrázky načítají později, posuň znovu
+    imgs.slice(0, idx || 0).forEach(function (im) { if (!im.complete) im.addEventListener("load", go, { once: true }); });
   }
   function closeBox() { box.classList.remove("is-open"); }
 
@@ -144,8 +159,8 @@
       (s.prispevky || []).forEach(function (p) {
         sec.appendChild(postCard(p, F));
       });
-      (s.obrazky || []).forEach(function (o) {
-        sec.appendChild(screenFigure(o));
+      (s.obrazky || []).forEach(function (o, i, all) {
+        sec.appendChild(screenFigure(o, all, i));
       });
       (s.akce || []).forEach(function (a) {
         sec.appendChild(eventCard(a, F.zdarma));
