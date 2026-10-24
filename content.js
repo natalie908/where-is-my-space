@@ -96,7 +96,7 @@ window.OBSAH = {
         // Příspěvky přepsané ze screenshotů (šablona FB příspěvku).
         // autor = jméno / stránka, profilovka = obrázek z images/profilovky/ ("" = iniciály),
         // kde = skupina nebo stránka, kde to vyšlo ("" = nic),
-        // cas = kdy, text = příspěvek, foto = obrázek z images/ ("" = bez fotky),
+        // cas = kdy, text = příspěvek, foto = obrázek z images/ ("" = bez fotky, víc obrázků = ["a.png", "b.png"]),
         // reakce = řádek dole s počtem reakcí a komentářů ("" = nezobrazovat)
         prispevky: [
           { autor: "Jan Oplatek", profilovka: "images/profilovky/jan-oplatek.jpg", kde: "", cas: "13 min",
@@ -122,11 +122,10 @@ window.OBSAH = {
       {
         nazev: "Akce týdne (agent)",
         popis: "Jednou týdně mi AI agent vybere akce v Brně podle mých témat (technologie, jóga, festivaly, design, přednášky). Preferuje akce zdarma.",
-        akce: [
-          { nazev: "Ranní jóga v parku", datum: "so 9:00", misto: "Lužánky", veta: "Hodina pro začátečníky pod širým nebem, stačí vlastní podložka.", zdarma: true },
-          { nazev: "Meetup: AI a design", datum: "čt 18:30", misto: "Impact Hub Brno", veta: "Krátké talky o tom, jak designéři reálně používají AI nástroje.", zdarma: true },
-          { nazev: "Přednáška o pozornosti", datum: "út 19:00", misto: "Knihovna Jiřího Mahena", veta: "Jak aplikace soutěží o náš čas a co s tím dělat.", zdarma: true },
-          { nazev: "Malý festival na dvoře", datum: "ne 14:00", misto: "Kabinet múz", veta: "Hudba, bazar a workshopy pro děti i dospělé.", zdarma: false },
+        // screenshoty z mé stránky Kam v Brně (agent). cela: true = obrázek se neořízne
+        prispevky: [
+          { autor: "Kam v Brně", profilovka: "", kde: "AI agent", cas: "24.–31. 10. 2026",
+            text: "", foto: ["images/kam-v-brne-1.png", "images/kam-v-brne-2.png"], cela: true, reakce: "" },
         ],
       },
     ],

@@ -92,18 +92,21 @@
     head.appendChild(who);
     card.appendChild(head);
     if (p.text) card.appendChild(el("p", "post-text", p.text));
-    if (p.foto) {
-      // fotka: vybělená, klepnutí přepne na barvy a zpět
+    var fotos = [].concat(p.foto || []).filter(Boolean);
+    if (fotos.length) {
+      // fotky: vybělené, klepnutí přepne na barvy a zpět
       card.classList.add("shot");
-      var wrap = el("div", "shot-img");
-      var img = new Image();
-      img.alt = "";
-      img.loading = "lazy";
-      img.decoding = "async";
-      img.onerror = function () { wrap.remove(); card.classList.remove("shot"); };
-      img.src = p.foto;
-      wrap.appendChild(img);
-      card.appendChild(wrap);
+      fotos.forEach(function (src) {
+        var wrap = el("div", "shot-img" + (p.cela ? " shot-img--full" : ""));
+        var img = new Image();
+        img.alt = "";
+        img.loading = "lazy";
+        img.decoding = "async";
+        img.onerror = function () { wrap.remove(); };
+        img.src = src;
+        wrap.appendChild(img);
+        card.appendChild(wrap);
+      });
       card.addEventListener("click", function () { card.classList.toggle("is-color"); });
     }
     if (p.reakce) card.appendChild(el("div", "post-foot", p.reakce));
