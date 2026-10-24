@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="cs">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>where is my space?</title>
+  <meta name="theme-color" content="#f2f0eb">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Lora:wght@600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- 1) ÚVOD -->
+  <section id="intro" class="scene is-active" aria-label="Úvod">
+    <div class="intro-backdrop" aria-hidden="true"></div>
+    <div class="stage" id="stage">
+      <video id="video" autoplay muted loop playsinline preload="auto" poster="strom-poster.jpg">
+        <source src="strom-web.mp4" type="video/mp4">
+        <source src="strom.mp4" type="video/mp4">
+      </video>
+      <button class="hotspot hotspot--sun" data-target="chaos" data-key="slunce"></button>
+      <button class="hotspot hotspot--planet" data-target="feed" data-key="planetka"></button>
+    </div>
+  </section>
+
+  <!-- 2) CHAOS -->
+  <section id="chaos" class="scene" aria-label="Chaos">
+    <canvas id="chaos-canvas" aria-hidden="true"></canvas>
+    <a href="#" class="back back--dark" data-back></a>
+    <p class="chaos-line" id="chaos-line"></p>
+  </section>
+
+  <!-- 3) FEED -->
+  <section id="feed" class="scene" aria-label="Můj feed">
+    <a href="#" class="back back--light" data-back></a>
+    <main class="feed" id="feed-content"></main>
+  </section>
+
+  <script src="content.js"></script>
+  <script src="chaos.js"></script>
+  <script src="feed.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

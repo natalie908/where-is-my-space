@@ -1,0 +1,260 @@
+*,
+*::before,
+*::after { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background: #f2f0eb;
+  color: #000;
+  font-family: "Inter", system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* ---------- scény + prolínání ---------- */
+
+.scene {
+  position: fixed;
+  inset: 0;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 600ms ease, visibility 0s linear 600ms;
+}
+.scene.is-active {
+  opacity: 1;
+  visibility: visible;
+  transition: opacity 600ms ease, visibility 0s;
+  z-index: 1;
+}
+
+/* ---------- zpět ---------- */
+
+.back {
+  position: absolute;
+  top: max(16px, env(safe-area-inset-top));
+  left: max(16px, env(safe-area-inset-left));
+  z-index: 5;
+  padding: 6px 4px;
+  font-size: 14px;
+  text-decoration: none;
+  opacity: .55;
+  transition: opacity 200ms ease;
+}
+.back:hover, .back:focus-visible { opacity: 1; }
+.back--dark  { color: #fff; }
+.back--light { color: #000; }
+
+/* ---------- 1) úvod ---------- */
+
+#intro { background: #f2f0eb; overflow: hidden; }
+
+/* rozmazané pozadí – vidět jen tam, kde video nepokryje celou obrazovku (mobil na výšku) */
+.intro-backdrop {
+  position: absolute;
+  inset: -40px;
+  background: url("strom-poster.jpg") center / cover no-repeat;
+  filter: blur(28px) saturate(.8);
+  opacity: .7;
+}
+
+.stage {
+  position: absolute;
+  /* left/top/width/height nastavuje app.js */
+}
+.stage video {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+/* mobil na výšku: měkké okraje videa místo ostré hrany */
+.stage.is-letterbox {
+  -webkit-mask-image: linear-gradient(transparent, #000 8%, #000 92%, transparent);
+          mask-image: linear-gradient(transparent, #000 8%, #000 92%, transparent);
+}
+
+.hotspot {
+  --glow: 255, 186, 92;
+  position: absolute;
+  transform: translate(-50%, -50%);
+  aspect-ratio: 1;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  cursor: pointer;
+  box-shadow: 0 0 18px 4px rgba(var(--glow), .18);
+  animation: breathe 5.5s ease-in-out infinite;
+  transition: filter 400ms ease;
+}
+.hotspot--planet { --glow: 170, 120, 255; animation-delay: -2.7s; }
+
+/* větší dotyková plocha než samotný kruh */
+.hotspot::before {
+  content: "";
+  position: absolute;
+  inset: -35%;
+  border-radius: 50%;
+}
+
+.hotspot:hover,
+.hotspot:focus-visible {
+  outline: none;
+  animation-play-state: paused;
+  box-shadow: 0 0 30px 10px rgba(var(--glow), .45);
+}
+
+@keyframes breathe {
+  0%, 100% { box-shadow: 0 0 14px 2px rgba(var(--glow), .10); }
+  50%      { box-shadow: 0 0 30px 8px rgba(var(--glow), .32); }
+}
+
+/* režim ?edit */
+.is-edit .hotspot {
+  animation: none;
+  outline: 2px dashed #ff2d55;
+  outline-offset: 0;
+  background: rgba(255, 45, 85, .12);
+  cursor: grab;
+  touch-action: none;
+}
+.is-edit .hotspot::before { outline: 1px dotted rgba(255, 45, 85, .6); }
+.is-edit .hotspot.is-dragging { cursor: grabbing; }
+.hotspot-label {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translate(-50%, 8px);
+  white-space: nowrap;
+  font: 600 11px/1.3 "Inter", sans-serif;
+  color: #fff;
+  background: #ff2d55;
+  padding: 3px 6px;
+  border-radius: 4px;
+  pointer-events: none;
+}
+.edit-note {
+  position: fixed;
+  left: 50%;
+  bottom: 16px;
+  transform: translateX(-50%);
+  z-index: 10;
+  max-width: calc(100% - 32px);
+  font: 500 12px/1.4 "Inter", sans-serif;
+  color: #fff;
+  background: rgba(0, 0, 0, .75);
+  padding: 8px 12px;
+  border-radius: 6px;
+}
+
+/* ---------- 2) chaos ---------- */
+
+#chaos { background: #000; }
+#chaos-canvas { display: block; width: 100%; height: 100%; }
+
+.chaos-line {
+  position: absolute;
+  left: 50%;
+  bottom: max(28px, env(safe-area-inset-bottom));
+  transform: translate(-50%, 6px);
+  width: min(560px, calc(100% - 48px));
+  margin: 0;
+  text-align: center;
+  font-size: 15px;
+  line-height: 1.5;
+  color: #fff;
+  text-shadow: 0 0 6px #000, 0 0 14px #000, 0 0 24px #000;
+  opacity: 0;
+  transition: opacity 2.4s ease, transform 2.4s ease;
+  pointer-events: none;
+  z-index: 4;
+}
+.chaos-line.is-visible { opacity: .85; transform: translate(-50%, 0); }
+
+/* ---------- 3) feed ---------- */
+
+#feed {
+  background: #fff;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.feed {
+  max-width: 480px;
+  margin: 0 auto;
+  padding: 96px 24px 120px;
+}
+
+.feed h1,
+.feed h2 {
+  font-family: "Lora", Georgia, "Times New Roman", serif;
+  font-weight: 700;
+  letter-spacing: -.01em;
+}
+.feed h1 { font-size: 34px; line-height: 1.15; margin: 0 0 12px; }
+.feed .lead { margin: 0 0 72px; font-size: 15px; line-height: 1.55; }
+
+.feed-section { margin: 0 0 80px; }
+.feed h2 { font-size: 24px; line-height: 1.2; margin: 0 0 8px; }
+.feed-section > p { margin: 0 0 24px; font-size: 14px; line-height: 1.6; }
+
+.card {
+  border: 1px solid #000;
+  margin: 0 0 16px;
+  background: #fff;
+}
+.card img {
+  display: block;
+  width: 100%;
+  max-height: 560px;
+  object-fit: cover;
+  object-position: top;
+}
+.card--empty {
+  aspect-ratio: 4 / 3;
+  display: grid;
+  place-items: center;
+  font-size: 13px;
+}
+
+.event { padding: 18px 20px; }
+.event h3 { margin: 0 0 4px; font-size: 16px; font-weight: 600; }
+.event .meta { margin: 0 0 10px; font-size: 13px; }
+.event p { margin: 0; font-size: 14px; line-height: 1.55; }
+.pill {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 0 8px;
+  border: 1px solid #000;
+  border-radius: 999px;
+  font-size: 11px;
+  line-height: 18px;
+  vertical-align: 1px;
+}
+
+.feed-end {
+  margin-top: 120px;
+  padding-top: 40px;
+  border-top: 1px solid #000;
+  text-align: center;
+}
+.feed-end p {
+  margin: 0;
+  font-family: "Lora", Georgia, serif;
+  font-weight: 700;
+  font-size: 22px;
+}
+
+@media (max-width: 520px) {
+  .feed { padding: 80px 16px 96px; }
+  .feed h1 { font-size: 28px; }
+}
+
+/* ---------- méně pohybu ---------- */
+
+@media (prefers-reduced-motion: reduce) {
+  .hotspot { animation: none; box-shadow: 0 0 22px 5px rgba(var(--glow), .2); }
+  .chaos-line { transition: opacity 1.2s ease; transform: translate(-50%, 0); }
+}
