@@ -205,11 +205,13 @@ html, body {
   letter-spacing: -.01em;
 }
 .feed h1 { font-size: 34px; line-height: 1.15; margin: 0 0 12px; }
+.feed h1 + .feed-section { margin-top: 72px; }
 .feed .lead { margin: 0 0 72px; font-size: 15px; line-height: 1.55; }
 
 .feed-section { margin: 0 0 80px; }
-.feed h2 { font-size: 24px; line-height: 1.2; margin: 0 0 8px; }
+.feed h2 { font-size: 24px; line-height: 1.2; margin: 0 0 20px; }
 .feed-section > p { margin: 0 0 24px; font-size: 14px; line-height: 1.6; }
+.feed-section > h2 + p { margin-top: -12px; }
 
 .card {
   border: 1px solid #000;

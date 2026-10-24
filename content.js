@@ -80,23 +80,23 @@ window.OBSAH = {
 
   feed: {
     nadpis: "where is my space?",
-    podnadpis: "Můj Facebook po odebrání všeho, co jsem nepotřebovala.",
+    podnadpis: "", // prázdné = žádný popisek
     zpet: "← zpět",
 
     sekce: [
       {
         nazev: "Oblíbené",
-        popis: "Max 30 lidí a stránek, chronologicky, bez algoritmu. Otevírám přes záložku na ploše, aplikace Facebook je zablokovaná.",
+        popis: "",
         screenshoty: ["screenshots/oblibene-1.png", "screenshots/oblibene-2.png"],
       },
       {
         nazev: "Skupiny",
-        popis: "Jen skupiny, které jsem si vybrala, přes facebook.com/groups/feed.",
+        popis: "",
         screenshoty: ["screenshots/skupiny-1.png"],
       },
       {
         nazev: "Události",
-        popis: "Akce od míst a lidí, které sleduju.",
+        popis: "",
         screenshoty: ["screenshots/udalosti-1.png"],
       },
       {

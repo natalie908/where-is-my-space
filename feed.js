@@ -44,7 +44,7 @@
     F.sekce.forEach(function (s) {
       var sec = el("section", "feed-section");
       sec.appendChild(el("h2", null, s.nazev));
-      sec.appendChild(el("p", null, s.popis));
+      if (s.popis) sec.appendChild(el("p", null, s.popis));
       (s.screenshoty || []).forEach(function (src) {
         sec.appendChild(screenshotCard(src, F.prazdnaKarta));
       });
