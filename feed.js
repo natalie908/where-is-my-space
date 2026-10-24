@@ -92,25 +92,30 @@
     return row;
   }
 
-  // screenshot: vybělený, klepnutí přepne na barvy a zpět
-  function screenshotCard(src, idx, total, sectionName, F) {
-    var card = el("figure", "card shot");
-    card.style.margin = "";
+  // příspěvek přepsaný ze screenshotu: zdroj | typ, čas | reakce, text, případně fotka
+  function postCard(p, F) {
+    var card = el("article", "card post");
     card.appendChild(cells([
-      { text: String(idx).padStart(2, "0") + "/" + String(total).padStart(2, "0") },
-      { text: sectionName },
-      { text: F.tapBarva || "" },
-    ], "cells--3 cells--small"));
-    var wrap = el("div", "shot-img");
-    var img = new Image();
-    img.alt = "";
-    img.loading = "lazy";
-    img.decoding = "async";
-    img.onerror = function () { wrap.replaceWith(el("div", "shot-empty", F.prazdnaKarta)); };
-    img.src = src;
-    wrap.appendChild(img);
-    card.appendChild(wrap);
-    card.addEventListener("click", function () { card.classList.toggle("is-color"); });
+      { node: el("h3", null, p.zdroj) },
+      { node: el("span", "pill", p.typ) },
+    ]));
+    card.appendChild(cells([{ text: p.cas }, { text: p.reakce || "—" }], "cells--small"));
+    card.appendChild(cells([{ text: p.text, wide: true }]));
+    if (p.foto) {
+      // fotka: vybělená, klepnutí přepne na barvy a zpět
+      card.classList.add("shot");
+      var wrap = el("div", "shot-img");
+      var img = new Image();
+      img.alt = "";
+      img.loading = "lazy";
+      img.decoding = "async";
+      img.onerror = function () { wrap.remove(); card.classList.remove("shot"); };
+      img.src = p.foto;
+      wrap.appendChild(img);
+      if (F.tapBarva) wrap.appendChild(el("span", "shot-hint", F.tapBarva));
+      card.appendChild(wrap);
+      card.addEventListener("click", function () { card.classList.toggle("is-color"); });
+    }
     return card;
   }
 
@@ -148,7 +153,7 @@
   }
 
   function render(root, F) {
-    root.appendChild(title(F.nadpis));
+    if (F.nadpis) root.appendChild(title(F.nadpis));
 
     var meta = el("div", "feed-meta");
     meta.appendChild(compass(34));
@@ -157,39 +162,35 @@
     root.appendChild(meta);
     if (F.podnadpis) root.appendChild(el("p", "lead", F.podnadpis));
 
-    var total = F.sekce.reduce(function (s, x) { return s + (x.screenshoty || []).length; }, 0), shotNo = 0;
-
     F.sekce.forEach(function (s, i) {
       if (i > 0) root.appendChild(contours(480, 110));
       var sec = el("section", "feed-section");
       sec.appendChild(el("span", "feed-tag", String(i + 1).padStart(2, "0") + " — " + s.nazev));
       if (s.popis) sec.appendChild(el("p", null, s.popis));
-      (s.screenshoty || []).forEach(function (src) {
-        sec.appendChild(screenshotCard(src, ++shotNo, total, s.nazev, F));
+      (s.prispevky || []).forEach(function (p) {
+        sec.appendChild(postCard(p, F));
       });
       (s.akce || []).forEach(function (a) {
         sec.appendChild(eventCard(a, F.zdarma));
       });
-      if (!(s.screenshoty || []).length && !(s.akce || []).length) {
+      if (!(s.prispevky || []).length && !(s.akce || []).length) {
         sec.appendChild(emptyCard(F.prazdnaKarta));
       }
       root.appendChild(sec);
     });
 
-    if (F.konec) {
-      var end = el("footer", "feed-end");
-      end.appendChild(mountains(480, 60));
-      end.appendChild(el("div", "rule"));
-      end.appendChild(el("p", null, F.konec));
-      if (F.souradnice) end.appendChild(el("div", "coords", F.souradnice));
-      var up = el("a", "feed-up");
-      up.href = "#";
-      up.setAttribute("data-back", "");
-      up.appendChild(arrowUp());
-      up.appendChild(el("span", null, F.nahoru || ""));
-      end.appendChild(up);
-      root.appendChild(end);
-    }
+    var end = el("footer", "feed-end");
+    end.appendChild(mountains(480, 60));
+    end.appendChild(el("div", "rule"));
+    if (F.konec) end.appendChild(el("p", null, F.konec));
+    if (F.souradnice) end.appendChild(el("div", "coords", F.souradnice));
+    var up = el("a", "feed-up");
+    up.href = "#";
+    up.setAttribute("data-back", "");
+    up.appendChild(arrowUp());
+    up.appendChild(el("span", null, F.nahoru || ""));
+    end.appendChild(up);
+    root.appendChild(end);
   }
 
   window.Feed = { render: render };

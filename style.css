@@ -222,7 +222,7 @@ html, body {
 #feed {
   /* LADĚNÍ */
   --feed-veil: rgba(0, 0, 0, .25);      /* tmavost závoje přes fotku */
-  --card-bg: rgba(0, 0, 0, .22);        /* tmavý podklad karet */
+  --card-bg: rgba(255, 255, 255, .06); /* průhledný podklad karet */
   --card-blur: 6px;                     /* rozostření pozadí za kartou */
   --shot-veil: .3;                      /* bílý závoj přes screenshoty (0–1) */
   --shot-filter: grayscale(1) contrast(.9) brightness(1.1);
@@ -234,6 +234,7 @@ html, body {
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   font-family: var(--feed-font);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, .35);
 }
 
 /* fotka + závoj: fixní vrstva (funguje i na iPhonu, kde background-attachment: fixed nejde) */
@@ -248,7 +249,7 @@ html, body {
   content: "";
   position: absolute;
   inset: 0;
-  background: url("les.jpg") center / cover no-repeat;
+  background: url("voda.jpg") center / cover no-repeat;
   animation: feed-zoom 40s ease-in-out infinite alternate;
   will-change: transform;
 }
@@ -287,9 +288,9 @@ html, body {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  margin: 20px 0 56px;
-  padding-top: 12px;
-  border-top: 1px solid var(--line);
+  margin: 0 0 56px;
+  padding-bottom: 28px;
+  border-bottom: 1px solid var(--line);
   font-size: 11px;
   letter-spacing: .12em;
   text-transform: uppercase;
@@ -343,7 +344,7 @@ html, body {
 .cells--3 { grid-template-columns: auto 1fr auto; }
 .cells--small { font-size: 10px; letter-spacing: .12em; text-transform: uppercase; }
 
-.event h3 { margin: 0; font-size: 14px; font-weight: 700; line-height: 1.4; }
+.event h3, .post h3 { margin: 0; font-size: 14px; font-weight: 700; line-height: 1.4; }
 .pill {
   display: inline-block;
   padding: 0 8px;
@@ -377,6 +378,21 @@ html, body {
   transition: opacity 600ms ease;
   pointer-events: none;
 }
+.shot-hint {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  z-index: 1;
+  padding: 2px 8px;
+  border: 1px solid var(--line);
+  background: rgba(0, 0, 0, .25);
+  font-size: 10px;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  pointer-events: none;
+  transition: opacity 600ms ease;
+}
+.shot.is-color .shot-hint { opacity: 0; }
 .shot.is-color .shot-img img { filter: none; }
 .shot.is-color .shot-img::after { opacity: 0; }
 @media (hover: hover) {

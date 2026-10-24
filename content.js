@@ -10,10 +10,8 @@
   + chaos      – paleta (váhy barev, záře), typy obsahu (velikost tečky, popisky),
                  popisky pro příběh (zelené / červené) a věta dole.
                  Technické ladění sítě (počet větví, rychlost…) je v chaos.js nahoře.
-  + feed       – nadpis, sekce, popisky, screenshoty, akce týdne, závěrečná věta.
-                 Screenshoty: nahraj obrázek do složky screenshots/ se stejným
-                 názvem, jaký je tady v seznamu. Když obrázek chybí, ukáže se
-                 prázdná karta "sem přijde screenshot".
+  + feed       – sekce, příspěvky (přepsané ze screenshotů), akce týdne, souřadnice.
+                 Fotky k příspěvkům jsou ve složce images/.
   Pravidla: texty jsou v uvozovkách "…", za každou položkou čárka.
   ============================================================
 */
@@ -87,7 +85,7 @@ window.OBSAH = {
   },
 
   feed: {
-    nadpis: "where is my space?",
+    nadpis: "", // velký nadpis nahoře ve feedu – prázdné = bez nadpisu
     podnadpis: "", // prázdné = žádný popisek
     zpet: "← zpět",
 
@@ -95,13 +93,28 @@ window.OBSAH = {
       {
         nazev: "Oblíbené",
         popis: "",
-        screenshoty: [
-          "screenshots/oblibene-1.jpg",
-          "screenshots/udalosti-2.jpg",
-          "screenshots/oblibene-2.jpg",
-          "screenshots/udalosti-1.jpg",
-          "screenshots/udalosti-3.jpg",
-          "screenshots/oblibene-3.jpg",
+        // Příspěvky přepsané ze screenshotů. Soukromé osoby jsou anonymizované.
+        // zdroj = kdo to sdílel, typ = OBLÍBENÉ / SKUPINA / UDÁLOST, cas = kdy,
+        // reakce = počet reakcí ("" = nezobrazovat), text = příspěvek, foto = obrázek z images/ ("" = bez fotky)
+        prispevky: [
+          { zdroj: "kamarád", typ: "OBLÍBENÉ", cas: "před 13 min", reakce: "44 reakcí · 2 komentáře",
+            text: "Cesta zpátky do Brna vedla přes Marsu Matruh. Obvykle létáme přes pobřeží u El Alameinu, což je trošku východněji.",
+            foto: "images/pobrezi-z-letadla.jpg" },
+          { zdroj: "Co.Labs", typ: "UDÁLOST", cas: "čt 29. 10. · 19:30", reakce: "",
+            text: "Divadlo T-Art: On a Ona. Na motivy díla O. Kobyljanské – „Tvůj jazyk není pro mé uši“. CO.LABS, Kounicova 20, Brno.",
+            foto: "" },
+          { zdroj: "Brain We Are", typ: "OBLÍBENÉ", cas: "před 1 h", reakce: "",
+            text: "Psycholog a matematik Radvan Bahbouh na 333. díle podcastu Brain We Are…",
+            foto: "" },
+          { zdroj: "KISK", typ: "UDÁLOST", cas: "čt 29. 10. · 18:15", reakce: "3 reakce",
+            text: "Komunitní večeře v knihovně Na Křižovatce, Brno.",
+            foto: "images/kisk-komunitni-vecere.jpg" },
+          { zdroj: "Co.Labs", typ: "UDÁLOST", cas: "pá 13. 11. · 19:30", reakce: "19 lidí to zajímá",
+            text: "LIMINAL. Co.Labs, Brno.",
+            foto: "" },
+          { zdroj: "Zen Neor", typ: "OBLÍBENÉ", cas: "před 1 dnem", reakce: "",
+            text: "Ilustrace: „And yet, we still met.“",
+            foto: "images/zen-neor-ilustrace.jpg" },
         ],
       },
       {
@@ -119,9 +132,9 @@ window.OBSAH = {
 
     prazdnaKarta: "sem přijde screenshot",
     zdarma: "zdarma",
-    konec: "To je vše. Můžeš jít ven.", // věta na úplném konci feedu – prázdné = žádný konec
+    konec: "", // věta na úplném konci feedu – prázdné = žádná věta
     souradnice: "49°11′N 16°36′E",   // souřadnice (Brno) v hlavičce a na konci
     nahoru: "zpět na úvod",          // popisek šipky nahoru na konci
-    tapBarva: "klepni = barva",      // nápověda na liště screenshotu
+    tapBarva: "klepni = barva",      // nápověda u fotky v příspěvku
   },
 };
