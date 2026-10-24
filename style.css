@@ -152,7 +152,7 @@ html, body {
 /* ---------- 2) chaos ---------- */
 
 #chaos { background: #000; }
-#chaos-canvas { display: block; width: 100%; height: 100%; }
+#chaos-canvas { display: block; width: 100%; height: 100%; touch-action: none; }
 
 .chaos-line {
   position: absolute;

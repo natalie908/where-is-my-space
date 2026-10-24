@@ -2,21 +2,27 @@
 (function () {
   "use strict";
 
-  // signální barvy + barva textu pro dobrý kontrast
-  var COLORS = [
-    { fill: "#ff1744", text: "#fff" }, // neon červená
-    { fill: "#ffea00", text: "#000" }, // žlutá
-    { fill: "#00e5ff", text: "#000" }, // azurová
-    { fill: "#ff00d4", text: "#fff" }, // magenta
-    { fill: "#39ff14", text: "#000" }, // zelená
+  // tlumené signální barvy – barva textu (bílá/černá) se dopočítá podle kontrastu
+  var PALETTE = [
+    "#e0574f", // korálově červená
+    "#e3b53c", // hořčicová
+    "#3fa9a4", // petrolejová
+    "#b85a96", // švestková magenta
+    "#8cb84f", // mechově zelená
+    "#5b7fd0", // chrpová
+    "#e08a4e", // oranžová
   ];
 
   // velikost = kolik pozornosti to bere (poloměr jako podíl velikosti obrazovky)
   var SIZES = {
-    velka:   { k: 0.115, min: 64, speed: [0.12, 0.22] },
-    stredni: { k: 0.078, min: 48, speed: [0.18, 0.32] },
-    mala:    { k: 0.048, min: 36, speed: [0.22, 0.36] },
+    velka:    { k: 0.085, min: 50, speed: [0.08, 0.14] },
+    stredni:  { k: 0.058, min: 38, speed: [0.10, 0.18] },
+    mala:     { k: 0.036, min: 27, speed: [0.12, 0.22] },
+    zajimave: { k: 0.040, min: 30, speed: [0.12, 0.20] },
   };
+
+  // reakce na myš / prst: kolečka uhýbají a nechají se rozvířit
+  var POINTER = { radius: 0.2, push: 2.2, drag: 0.9 };
 
   var T = {
     firstCycle: 3.5,      // s po otevření
@@ -31,6 +37,7 @@
   var circles = [];
   var seq = null;
   var reduced = false;
+  var pointer = { x: 0, y: 0, vx: 0, vy: 0, active: false, t: 0 };
 
   function rand(a, b) { return a + Math.random() * (b - a); }
   function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
@@ -38,18 +45,27 @@
   function easeIn(t) { return t * t * t; }
   function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
 
+  function textColor(hex) {
+    var n = parseInt(hex.slice(1), 16);
+    var lin = function (c) { c /= 255; return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); };
+    var L = 0.2126 * lin(n >> 16) + 0.7152 * lin((n >> 8) & 255) + 0.0722 * lin(n & 255);
+    return (1.05 / (L + 0.05)) >= ((L + 0.05) / 0.05) ? "#fff" : "#000";
+  }
+
   /* ---------- příprava ---------- */
 
   function build() {
     circles = [];
-    var i = 0;
-    ["velka", "stredni", "mala"].forEach(function (size) {
+    var prev = -1;
+    ["velka", "stredni", "mala", "zajimave"].forEach(function (size) {
       (cfg[size] || []).forEach(function (item) {
-        var col = COLORS[i++ % COLORS.length];
+        var ci;
+        do { ci = Math.floor(Math.random() * PALETTE.length); } while (ci === prev);
+        prev = ci;
         var sp = SIZES[size].speed;
         circles.push({
           text: item.text, naraz: !!item.naraz, size: size,
-          fill: col.fill, color: col.text,
+          fill: PALETTE[ci], color: textColor(PALETTE[ci]),
           speedK: rand(sp[0], sp[1]),
           ang: rand(0, Math.PI * 2), spin: 0,
           x: 0, y: 0, vx: 0, vy: 0, r: 0,
@@ -111,7 +127,11 @@
       lines.push(line);
       if (lines.length * f * 1.18 <= c.r * 1.3) { c.fs = f; c.lines = lines; return; }
     }
-    c.fs = 8; c.lines = [c.text];
+    // dlouhé slovo se nevejde ani při 8 px → zmenši písmo tak, aby se vešlo
+    ctx.font = "600 8px Inter, system-ui, -apple-system, sans-serif";
+    var widest = Math.max.apply(null, words.map(function (w) { return ctx.measureText(w).width; }));
+    c.fs = Math.max(5, 8 * maxW / widest);
+    c.lines = words;
   }
 
   /* ---------- scénář: zajímavé do středu → náraz → velké zabere střed ---------- */
@@ -126,7 +146,8 @@
     switch (seq.phase) {
       case "idle":
         if (seq.t < seq.wait) return;
-        var smalls = circles.filter(function (c) { return c.size === "mala" && c.mode === "free"; });
+        var smalls = circles.filter(function (c) { return c.size === "zajimave" && c.mode === "free"; });
+        if (!smalls.length) smalls = circles.filter(function (c) { return c.size === "mala" && c.mode === "free"; });
         var bigs = circles.filter(function (c) { return c.size === "velka" && c.naraz && c.mode === "free"; });
         if (!bigs.length) bigs = circles.filter(function (c) { return c.size === "velka" && c.mode === "free"; });
         if (!smalls.length || !bigs.length) { seq.t = 0; seq.wait = 1; return; }
@@ -211,13 +232,14 @@
       }
     } else {
       // náhodné kličkování
-      var jitter = reduced ? 0.6 : 3.5;
-      var maxSpin = reduced ? 0.25 : 1.6;
+      var jitter = reduced ? 0.6 : 2.5;
+      var maxSpin = reduced ? 0.25 : 1.2;
       c.spin = clamp(c.spin + rand(-1, 1) * jitter * dt, -maxSpin, maxSpin);
       var a = c.spin * dt, cos = Math.cos(a), sin = Math.sin(a);
       var vx = c.vx * cos - c.vy * sin;
       c.vy = c.vx * sin + c.vy * cos;
       c.vx = vx;
+      pointerForce(c, dt);
     }
 
     c.x += c.vx * dt;
@@ -228,18 +250,49 @@
     if (c.y > H - c.r) { c.y = H - c.r; c.vy = -Math.abs(c.vy); }
   }
 
+  function pointerForce(c, dt) {
+    if (pointer.active) {
+      var R = POINTER.radius * S + c.r;
+      var dx = c.x - pointer.x, dy = c.y - pointer.y;
+      var d = Math.hypot(dx, dy);
+      if (d < R && d > 0.5) {
+        var f = 1 - d / R;
+        var k = reduced ? 0.3 : 1;
+        // odstrčení od kurzoru + strhnutí ve směru pohybu myši
+        c.vx += (dx / d * POINTER.push * S * f * f + pointer.vx * POINTER.drag * f) * k * dt * 4;
+        c.vy += (dy / d * POINTER.push * S * f * f + pointer.vy * POINTER.drag * f) * k * dt * 4;
+      }
+    }
+    // rychlost se pomalu vrací k normálu
+    var now = Math.hypot(c.vx, c.vy) || 1;
+    var target = now + (c.speed - now) * (1 - Math.exp(-1.2 * dt));
+    var lim = Math.min(target, c.speed * 8);
+    c.vx *= lim / now; c.vy *= lim / now;
+  }
+
+  function onPointer(e) {
+    var now = performance.now();
+    var dt = Math.max(0.008, (now - pointer.t) / 1000);
+    if (pointer.active && dt < 0.2) {
+      pointer.vx = clamp((e.clientX - pointer.x) / dt, -3000, 3000);
+      pointer.vy = clamp((e.clientY - pointer.y) / dt, -3000, 3000);
+    } else {
+      pointer.vx = pointer.vy = 0;
+    }
+    pointer.x = e.clientX; pointer.y = e.clientY; pointer.t = now;
+    pointer.active = true;
+  }
+  function onPointerLeave() { pointer.active = false; }
+  function onPointerUp(e) { if (e.pointerType !== "mouse") onPointerLeave(); }
+
   /* ---------- kreslení ---------- */
 
   function draw(c) {
     var r = c.r * (1 + 0.08 * c.bump);
-    ctx.save();
-    ctx.shadowColor = c.fill;
-    ctx.shadowBlur = r * 0.35;
     ctx.fillStyle = c.fill;
     ctx.beginPath();
     ctx.arc(c.x, c.y, r, 0, Math.PI * 2);
     ctx.fill();
-    ctx.restore();
 
     ctx.fillStyle = c.color;
     ctx.font = "600 " + c.fs + "px Inter, system-ui, -apple-system, sans-serif";
@@ -253,6 +306,9 @@
     last = now;
 
     stepSeq(dt);
+    // myš se nehýbe → její „strhnutí“ odezní
+    var decay = Math.exp(-8 * dt);
+    pointer.vx *= decay; pointer.vy *= decay;
     circles.forEach(function (c) {
       move(c, dt);
       c.bump *= Math.exp(-4 * dt);
@@ -286,6 +342,11 @@
     last = performance.now();
     raf = requestAnimationFrame(frame);
     window.addEventListener("resize", onResize);
+    window.addEventListener("pointermove", onPointer);
+    window.addEventListener("pointerdown", onPointer);
+    document.documentElement.addEventListener("pointerleave", onPointerLeave);
+    window.addEventListener("pointerup", onPointerUp);
+    pointer.active = false;
     if (document.fonts && document.fonts.ready) document.fonts.ready.then(function () { if (raf) resize(); });
   }
 
@@ -293,6 +354,11 @@
     if (raf) cancelAnimationFrame(raf);
     raf = null;
     window.removeEventListener("resize", onResize);
+    window.removeEventListener("pointermove", onPointer);
+    window.removeEventListener("pointerdown", onPointer);
+    document.documentElement.removeEventListener("pointerleave", onPointerLeave);
+    window.removeEventListener("pointerup", onPointerUp);
+    pointer.active = false;
   }
 
   window.Chaos = { start: start, stop: stop };

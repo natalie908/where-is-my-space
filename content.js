@@ -7,8 +7,9 @@
                  (x, y = střed v % šířky/výšky videa, velikost = průměr v % šířky).
                  Nejsnáz je doladíš přes index.html?edit – souřadnice se vypíšou
                  do konzole (F12) a stačí je sem zkopírovat.
-  + chaos      – popisky koleček (velka / stredni / mala) a věta dole.
+  + chaos      – popisky koleček (velka / stredni / mala / zajimave) a věta dole.
                  Kolečka s "naraz: true" jsou ta, která vrážejí do zajímavých věcí.
+                 Kolečka můžeš libovolně přidávat a mazat.
   + feed       – nadpis, sekce, popisky, screenshoty, akce týdne, závěrečná věta.
                  Screenshoty: nahraj obrázek do složky screenshots/ se stejným
                  názvem, jaký je tady v seznamu. Když obrázek chybí, ukáže se
@@ -25,26 +26,53 @@ window.OBSAH = {
   },
 
   chaos: {
+    // velikost kolečka = kolik pozornosti mi to bere
     velka: [
-      { text: "extremistický politický obsah", naraz: true },
-      { text: "hádka v komentářích" },
-      { text: "reels" },
+      { text: "misleading headline", naraz: true },
       { text: "rage bait", naraz: true },
-      { text: "konspirace", naraz: true },
+      { text: "comment war", naraz: true },
+      { text: "reels" },
+      { text: "polarizing post", naraz: true },
     ],
     stredni: [
-      { text: "reklama" },
-      { text: "sponzorovaný příspěvek" },
-      { text: "lidé, které možná znáte" },
-      { text: "doporučená stránka" },
-      { text: "virální video" },
+      { text: "ad" },
+      { text: "sponsored" },
+      { text: "people you may know" },
+      { text: "suggested for you" },
+      { text: "viral video" },
+      { text: "clickbait" },
+      { text: "trending" },
+      { text: "influencer post" },
+      { text: "shop now" },
+      { text: "memories" },
+      { text: "marketplace" },
+      { text: "half-true infographic" },
     ],
+    // drobný šum, který nic nepřináší
     mala: [
-      { text: "jógová akce v Brně" },
-      { text: "fotka od kamarádky" },
-      { text: "zajímavý článek" },
+      { text: "quiz" },
+      { text: "horoscope" },
+      { text: "giveaway" },
+      { text: "game invite" },
+      { text: "celebrity gossip" },
+      { text: "life hack" },
+      { text: "recipe video" },
+      { text: "crypto ad" },
+      { text: "notification" },
+      { text: "meme" },
+      { text: "poll" },
+      { text: "live video" },
+      { text: "dropshipping ad" },
+      { text: "fake discount" },
+    ],
+    // malé, ale zajímavé – tyhle doplavou do středu a pak je něco velkého vytlačí
+    zajimave: [
+      { text: "yoga event in Brno" },
+      { text: "photo from a friend" },
+      { text: "interesting article" },
       { text: "festival" },
-      { text: "přednáška" },
+      { text: "lecture" },
+      { text: "design meetup" },
     ],
     vetaDole: "Takhle jsem se cítila, když jsem otevřela Facebook.",
     zpet: "← zpět",
