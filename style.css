@@ -440,8 +440,9 @@ html, body {
   -webkit-backdrop-filter: blur(6px);
           backdrop-filter: blur(6px);
   font-family: var(--feed-font);
-  font-size: 12px;
-  letter-spacing: .08em;
+  font-size: 18px;
+  line-height: 1;
+  padding: 6px 12px 8px;
   opacity: .85;
 }
 

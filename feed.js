@@ -2,65 +2,12 @@
 (function () {
   "use strict";
 
-  var SVGNS = "http://www.w3.org/2000/svg";
 
   function el(tag, cls, text) {
     var n = document.createElement(tag);
     if (cls) n.className = cls;
     if (text != null) n.textContent = text;
     return n;
-  }
-
-  function svg(w, h, inner, cls) {
-    var s = document.createElementNS(SVGNS, "svg");
-    s.setAttribute("viewBox", "0 0 " + w + " " + h);
-    s.setAttribute("width", w);
-    s.setAttribute("height", h);
-    s.setAttribute("aria-hidden", "true");
-    s.setAttribute("fill", "none");
-    s.setAttribute("stroke", "currentColor");
-    if (cls) s.setAttribute("class", cls);
-    s.innerHTML = inner;
-    return s;
-  }
-
-  function rand(a, b) { return a + Math.random() * (b - a); }
-  function f(n) { return Math.round(n * 10) / 10; }
-
-  /* ---------- dekorace (generované, bílé linky) ---------- */
-
-  // kompas: kruh, rysky a šipka k severu
-  function compass(size) {
-    var c = size / 2, r = c - 2, out = '<circle cx="' + c + '" cy="' + c + '" r="' + r + '" stroke-width="1"/>';
-    for (var i = 0; i < 16; i++) {
-      var a = i / 16 * Math.PI * 2, l = i % 4 ? 3 : 6;
-      out += '<line x1="' + f(c + Math.sin(a) * r) + '" y1="' + f(c - Math.cos(a) * r) + '" x2="' + f(c + Math.sin(a) * (r - l)) + '" y2="' + f(c - Math.cos(a) * (r - l)) + '" stroke-width="1"/>';
-    }
-    out += '<path d="M' + c + ' ' + (c - r + 8) + ' L' + (c + 4) + ' ' + c + ' L' + c + ' ' + (c + r - 8) + ' L' + (c - 4) + ' ' + c + ' Z" stroke-width="1"/>';
-    out += '<path d="M' + c + ' ' + (c - r + 8) + ' L' + (c + 4) + ' ' + c + ' L' + (c - 4) + ' ' + c + ' Z" fill="currentColor" stroke="none"/>';
-    return svg(size, size, out);
-  }
-
-  // vrstevnice: soustředné nepravidelné křivky kolem dvou „kopců“
-  function contours(w, h) {
-    var out = "";
-    [[w * rand(0.25, 0.4), h * 0.55, 7], [w * rand(0.68, 0.8), h * 0.45, 5]].forEach(function (hill) {
-      var ph = [rand(0, 6), rand(0, 6), rand(0, 6)];
-      for (var k = 1; k <= hill[2]; k++) {
-        var base = k * h * 0.11, d = "";
-        for (var i = 0; i <= 72; i++) {
-          var a = i / 72 * Math.PI * 2;
-          var r = base * (1 + 0.16 * Math.sin(3 * a + ph[0]) + 0.08 * Math.sin(5 * a + ph[1] + k * 0.2) + 0.05 * Math.sin(7 * a + ph[2]));
-          d += (i ? "L" : "M") + f(hill[0] + Math.cos(a) * r * 1.6) + " " + f(hill[1] + Math.sin(a) * r);
-        }
-        out += '<path d="' + d + 'Z" stroke-width="' + (k === hill[2] ? 1 : 0.7) + '" opacity="' + (0.35 + 0.65 * k / hill[2]) + '"/>';
-      }
-    });
-    return svg(w, h, out, "feed-divider");
-  }
-
-  function arrowUp() {
-    return svg(14, 22, '<path d="M7 21 V2 M1 8 L7 2 L13 8" stroke-width="1"/>');
   }
 
   /* ---------- karty ---------- */
@@ -149,11 +96,6 @@
   function render(root, F) {
     if (F.nadpis) root.appendChild(title(F.nadpis));
 
-    var meta = el("div", "feed-meta");
-    meta.appendChild(compass(34));
-    meta.appendChild(el("span", null, F.souradnice || ""));
-    meta.appendChild(el("span", null, "Brno"));
-    root.appendChild(meta);
     if (F.podnadpis) root.appendChild(el("p", "lead", F.podnadpis));
 
     F.sekce.forEach(function (s, i) {
@@ -172,19 +114,11 @@
       root.appendChild(sec);
     });
 
-    var end = el("footer", "feed-end");
-    end.appendChild(contours(480, 110));
-    end.appendChild(el("div", "rule"));
-    if (F.konec) end.appendChild(el("p", null, F.konec));
-    if (F.souradnice) end.appendChild(el("div", "coords", F.souradnice));
-    var up = el("a", "feed-up");
-    up.href = "#";
-    up.setAttribute("data-back", "");
-    up.appendChild(arrowUp());
-    up.setAttribute("aria-label", F.nahoru || F.zpet || "zpět");
-    if (F.nahoru) up.appendChild(el("span", null, F.nahoru));
-    end.appendChild(up);
-    root.appendChild(end);
+    if (F.konec) {
+      var end = el("footer", "feed-end");
+      end.appendChild(el("p", null, F.konec));
+      root.appendChild(end);
+    }
   }
 
   window.Feed = { render: render };

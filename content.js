@@ -10,7 +10,7 @@
   + chaos      – paleta (váhy barev, záře), typy obsahu (velikost tečky, popisky),
                  popisky pro příběh (zelené / červené) a věta dole.
                  Technické ladění sítě (počet větví, rychlost…) je v chaos.js nahoře.
-  + feed       – sekce, příspěvky (přepsané ze screenshotů), akce týdne, souřadnice.
+  + feed       – sekce, příspěvky (přepsané ze screenshotů), akce týdne.
                  Fotky k příspěvkům jsou ve složce images/.
   Pravidla: texty jsou v uvozovkách "…", za každou položkou čárka.
   ============================================================
@@ -87,7 +87,7 @@ window.OBSAH = {
   feed: {
     nadpis: "", // velký nadpis nahoře ve feedu – prázdné = bez nadpisu
     podnadpis: "", // prázdné = žádný popisek
-    zpet: "← zpět",
+    zpet: "←",  // tlačítko zpět vlevo nahoře
 
     sekce: [
       {
@@ -133,7 +133,5 @@ window.OBSAH = {
     prazdnaKarta: "sem přijde screenshot",
     zdarma: "zdarma",
     konec: "", // věta na úplném konci feedu – prázdné = žádná věta
-    souradnice: "49°11′N 16°36′E",   // souřadnice (Brno) v hlavičce a na konci
-    nahoru: "",          // popisek šipky nahoru na konci ("" = jen šipka)
   },
 };
