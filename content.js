@@ -122,11 +122,10 @@ window.OBSAH = {
       {
         nazev: "Akce týdne (agent)",
         popis: "",
-        // screenshoty mé stránky Kam v Brně: src = průhledná verze ve feedu,
-        // velky = původní obrázek, který se ukáže po klepnutí (zvětšený, s černým pozadím)
+        // screenshoty mé stránky Kam v Brně (průhledná verze, klepnutím se zvětší)
         obrazky: [
-          { src: "images/kam-v-brne-1-pruhledny.png", velky: "images/kam-v-brne-1.png" },
-          { src: "images/kam-v-brne-2-pruhledny.png", velky: "images/kam-v-brne-2.png" },
+          { src: "images/kam-v-brne-1-pruhledny.png" },
+          { src: "images/kam-v-brne-2-pruhledny.png" },
         ],
       },
     ],
