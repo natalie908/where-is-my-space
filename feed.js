@@ -57,9 +57,11 @@
       root.appendChild(sec);
     });
 
-    var end = el("footer", "feed-end");
-    end.appendChild(el("p", null, F.konec));
-    root.appendChild(end);
+    if (F.konec) {
+      var end = el("footer", "feed-end");
+      end.appendChild(el("p", null, F.konec));
+      root.appendChild(end);
+    }
   }
 
   window.Feed = { render: render };

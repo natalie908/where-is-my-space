@@ -7,9 +7,9 @@
                  (x, y = střed v % šířky/výšky videa, velikost = průměr v % šířky).
                  Nejsnáz je doladíš přes index.html?edit – souřadnice se vypíšou
                  do konzole (F12) a stačí je sem zkopírovat.
-  + chaos      – popisky koleček (velka / stredni / mala / zajimave) a věta dole.
-                 Kolečka s "naraz: true" jsou ta, která vrážejí do zajímavých věcí.
-                 Kolečka můžeš libovolně přidávat a mazat.
+  + chaos      – typy obsahu v síti (barva, velikost tečky, četnost, popisky),
+                 popisky pro příběh (zelené / červené) a věta dole.
+                 Technické ladění sítě (počet větví, rychlost…) je v chaos.js nahoře.
   + feed       – nadpis, sekce, popisky, screenshoty, akce týdne, závěrečná věta.
                  Screenshoty: nahraj obrázek do složky screenshots/ se stejným
                  názvem, jaký je tady v seznamu. Když obrázek chybí, ukáže se
@@ -26,54 +26,32 @@ window.OBSAH = {
   },
 
   chaos: {
-    // velikost kolečka = kolik pozornosti mi to bere
-    velka: [
-      { text: "misleading headline", naraz: true },
-      { text: "rage bait", naraz: true },
-      { text: "comment war", naraz: true },
-      { text: "reels" },
-      { text: "polarizing post", naraz: true },
-    ],
-    stredni: [
-      { text: "ad" },
-      { text: "sponsored" },
-      { text: "people you may know" },
-      { text: "suggested for you" },
-      { text: "viral video" },
-      { text: "clickbait" },
-      { text: "trending" },
-      { text: "influencer post" },
-      { text: "shop now" },
-      { text: "memories" },
-      { text: "marketplace" },
-      { text: "half-true infographic" },
-    ],
-    // drobný šum, který nic nepřináší
-    mala: [
-      { text: "quiz" },
-      { text: "horoscope" },
-      { text: "giveaway" },
-      { text: "game invite" },
-      { text: "celebrity gossip" },
-      { text: "life hack" },
-      { text: "recipe video" },
-      { text: "crypto ad" },
-      { text: "notification" },
-      { text: "meme" },
-      { text: "poll" },
-      { text: "live video" },
-      { text: "dropshipping ad" },
-      { text: "fake discount" },
-    ],
-    // malé, ale zajímavé – tyhle doplavou do středu a pak je něco velkého vytlačí
-    zajimave: [
-      { text: "yoga event in Brno" },
-      { text: "photo from a friend" },
-      { text: "interesting article" },
-      { text: "festival" },
-      { text: "lecture" },
-      { text: "design meetup" },
-    ],
+    // Typy obsahu v síti. barva = barva větví a teček, velikost = poloměr tečky
+    // (kolik pozornosti to bere), cetnost = jak často se typ v síti objevuje,
+    // popisky = co se ukáže po najetí / klepnutí na tečku.
+    // Názvy typů (cervena, zelena…) neměň – podle nich funguje příběh.
+    typy: {
+      cervena: { barva: "#FF3B3B", velikost: 2.8, cetnost: 22,
+        popisky: ["rage bait", "polarizing post", "political outrage", "misleading headline", "comment war"] },
+      zluta:   { barva: "#FFE14D", velikost: 2.1, cetnost: 22,
+        popisky: ["reels", "viral video", "trending", "meme", "live video", "celebrity gossip"] },
+      ruzova:  { barva: "#FF7EC8", velikost: 1.9, cetnost: 22,
+        popisky: ["ad", "sponsored", "shop now", "crypto ad", "fake discount", "giveaway", "influencer post"] },
+      modra:   { barva: "#4D6BFF", velikost: 1.6, cetnost: 18,
+        popisky: ["suggested for you", "suggested page", "quiz", "horoscope", "game invite", "memories"] },
+      azurova: { barva: "#4DE1FF", velikost: 1.4, cetnost: 14,
+        popisky: ["people you may know", "friend suggestion", "follow suggestion"] },
+      zelena:  { barva: "#3DFF9A", velikost: 1.2, cetnost: 4,
+        popisky: ["yoga event in Brno", "photo from a friend", "interesting article", "festival", "lecture", "design meetup"] },
+    },
+
+    // Příběh (každých ~12 s): zelená věc doputuje do středu, pak ji přebije červená.
+    // Popisky se v každém kole střídají po řadě.
+    pribeh: {
+      zelene: ["yoga event in Brno", "photo from a friend", "interesting article", "festival", "lecture", "design meetup"],
+      cervene: ["extremist political content", "rage bait", "misleading headline", "polarizing post", "comment war"],
+    },
+
     vetaDole: "", // věta, která se po 6 s objeví dole – prázdné = žádná věta
     zpet: "← zpět",
   },
@@ -87,17 +65,14 @@ window.OBSAH = {
       {
         nazev: "Oblíbené",
         popis: "",
-        screenshoty: ["screenshots/oblibene-1.jpg", "screenshots/oblibene-2.jpg", "screenshots/oblibene-3.jpg"],
-      },
-      {
-        nazev: "Skupiny",
-        popis: "",
-        screenshoty: ["screenshots/skupiny-1.png"],
-      },
-      {
-        nazev: "Události",
-        popis: "",
-        screenshoty: ["screenshots/udalosti-1.jpg", "screenshots/udalosti-2.jpg", "screenshots/udalosti-3.jpg"],
+        screenshoty: [
+          "screenshots/oblibene-1.jpg",
+          "screenshots/udalosti-2.jpg",
+          "screenshots/oblibene-2.jpg",
+          "screenshots/udalosti-1.jpg",
+          "screenshots/udalosti-3.jpg",
+          "screenshots/oblibene-3.jpg",
+        ],
       },
       {
         nazev: "Akce týdne (agent)",
@@ -114,6 +89,6 @@ window.OBSAH = {
 
     prazdnaKarta: "sem přijde screenshot",
     zdarma: "zdarma",
-    konec: "To je vše. Můžeš jít ven.",
+    konec: "", // věta na úplném konci feedu – prázdné = žádný konec
   },
 };

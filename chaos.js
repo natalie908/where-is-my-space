@@ -1,335 +1,526 @@
-/* Scéna chaos – kolečka na canvasu. Popisky jsou v content.js (OBSAH.chaos). */
+/*
+  Scéna chaos – generativní „neuronová síť“ na canvasu.
+  Barvy, velikosti teček a popisky: content.js (OBSAH.chaos).
+  Technické ladění: CONFIG hned níže.
+*/
 (function () {
   "use strict";
 
-  // tlumené signální barvy – barva textu (bílá/černá) se dopočítá podle kontrastu
-  var PALETTE = [
-    "#e0574f", // korálově červená
-    "#e3b53c", // hořčicová
-    "#3fa9a4", // petrolejová
-    "#b85a96", // švestková magenta
-    "#8cb84f", // mechově zelená
-    "#5b7fd0", // chrpová
-    "#e08a4e", // oranžová
-  ];
-
-  // velikost = kolik pozornosti to bere (poloměr jako podíl velikosti obrazovky)
-  var SIZES = {
-    velka:    { k: 0.085, min: 50, speed: [0.08, 0.14] },
-    stredni:  { k: 0.058, min: 38, speed: [0.10, 0.18] },
-    mala:     { k: 0.036, min: 27, speed: [0.12, 0.22] },
-    zajimave: { k: 0.040, min: 30, speed: [0.12, 0.20] },
+  var CONFIG = {
+    uzlyDesktop: 2200,   // max. počet větví/uzlů na velké obrazovce
+    uzlyMobil: 1400,     // max. počet větví/uzlů na mobilu
+    korenu: 28,          // kolik hlavních větví vyrůstá ze středu
+    vetveni: 0.55,       // šance, že se větev rozdvojí (0–1) – víc = hustší síť
+    uhel: 0.55,          // max. odklon nové větve (radiány)
+    zakriveni: 0.25,     // jak moc jsou větve prohnuté (0 = rovné)
+    rustRychlost: 70,    // rychlost dorůstání (px/s)
+    rotace: 0.012,       // rychlost otáčení celé sítě (rad/s)
+    signaly: 50,         // kolik světelných signálů běží najednou (mobil polovina)
+    signalRychlost: 140, // rychlost signálů (px/s)
+    pulz: 0.12,          // síla pulzování (0–1)
+    pauza: [1.5, 3.5],   // pauza mezi příběhy (s); celý příběh trvá ~10 s
+    maxTextura: 2600,    // max. rozlišení vrstvy sítě v px (paměť / ostrost)
   };
 
-  // reakce na myš / prst: kolečka uhýbají a nechají se rozvířit
-  var POINTER = { radius: 0.2, push: 2.2, drag: 0.9 };
+  var STEPS = 6; // na kolik úseků se každá křivka dělí
 
-  var T = {
-    firstCycle: 3.5,      // s po otevření
-    gap: [1.5, 3.5],      // pauza mezi cykly (celý cyklus pak trvá ~8–12 s)
-    approach: 2.2,        // malé kolečko pluje do středu
-    hold: 3,              // malé kolečko ve středu
-    occupy: 3.2,          // velké kolečko zabírá střed
-  };
-
-  var canvas, ctx, cfg, raf = null, last = 0;
-  var W = 0, H = 0, S = 0, dpr = 1;
-  var circles = [];
-  var seq = null;
+  var canvas, ctx, cfg, raf = null, last = 0, time = 0, pulseT = 0;
+  var W = 0, H = 0, dpr = 1, R = 0, offScale = 1, sc = 1;
+  var linesCv, dotsCv, lctx, dctx;
+  var types = {}, typeKeys = [];
+  var segs = [], grown = [], G = 0, extraBudget = 0;
+  var rot = 0, ts = 1, tsTarget = 1, tsRate = 1.5, netAlpha = 1, netAlphaTarget = 1, growBoost = 0;
+  var signals = [], signalTarget = 0;
+  var center = { c: [255, 255, 255], a: 0.12, tc: [255, 255, 255], ta: 0.12 };
+  var story = null, storyIdx = { zelene: 0, cervene: 0 };
   var reduced = false;
-  var pointer = { x: 0, y: 0, vx: 0, vy: 0, active: false, t: 0 };
+  var ui = null;
+  var pointer = { x: 0, y: 0, has: false }, hover = null, tapUntil = 0, frameNo = 0;
+  var perf = { n: 0, sum: 0, checked: 0 };
+
+  /* ---------- pomocné ---------- */
 
   function rand(a, b) { return a + Math.random() * (b - a); }
   function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
-  function easeInOut(t) { return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2; }
-  function easeIn(t) { return t * t * t; }
-  function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
-
-  function textColor(hex) {
-    var n = parseInt(hex.slice(1), 16);
-    var lin = function (c) { c /= 255; return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); };
-    var L = 0.2126 * lin(n >> 16) + 0.7152 * lin((n >> 8) & 255) + 0.0722 * lin(n & 255);
-    return (1.05 / (L + 0.05)) >= ((L + 0.05) / 0.05) ? "#fff" : "#000";
+  function rgba(c, a) { return "rgba(" + c[0] + "," + c[1] + "," + c[2] + "," + a + ")"; }
+  function hexRgb(h) { var n = parseInt(h.replace("#", ""), 16); return [n >> 16, (n >> 8) & 255, n & 255]; }
+  function lerpAngle(a, b, t) {
+    var d = Math.atan2(Math.sin(b - a), Math.cos(b - a));
+    return a + d * t;
   }
 
-  /* ---------- příprava ---------- */
-
-  function build() {
-    circles = [];
-    var prev = -1;
-    ["velka", "stredni", "mala", "zajimave"].forEach(function (size) {
-      (cfg[size] || []).forEach(function (item) {
-        var ci;
-        do { ci = Math.floor(Math.random() * PALETTE.length); } while (ci === prev);
-        prev = ci;
-        var sp = SIZES[size].speed;
-        circles.push({
-          text: item.text, naraz: !!item.naraz, size: size,
-          fill: PALETTE[ci], color: textColor(PALETTE[ci]),
-          speedK: rand(sp[0], sp[1]),
-          ang: rand(0, Math.PI * 2), spin: 0,
-          x: 0, y: 0, vx: 0, vy: 0, r: 0,
-          mode: "free", bump: 0,
-        });
-      });
-    });
-    resize();
-    circles.forEach(function (c) {
-      c.x = rand(c.r, W - c.r);
-      c.y = rand(c.r, H - c.r);
-      setVel(c, c.ang, c.speed);
+  function setupTypes() {
+    types = {};
+    typeKeys = Object.keys(cfg.typy);
+    typeKeys.forEach(function (k) {
+      var t = cfg.typy[k];
+      types[k] = { rgb: hexRgb(t.barva), size: t.velikost, weight: t.cetnost, labels: t.popisky && t.popisky.length ? t.popisky : [k] };
     });
   }
 
-  function setVel(c, ang, speed) {
-    c.vx = Math.cos(ang) * speed;
-    c.vy = Math.sin(ang) * speed;
+  function pickType(allowGreen) {
+    var keys = typeKeys.filter(function (k) { return allowGreen || k !== "zelena"; });
+    var total = keys.reduce(function (s, k) { return s + types[k].weight; }, 0);
+    var r = Math.random() * total;
+    for (var i = 0; i < keys.length; i++) { r -= types[keys[i]].weight; if (r <= 0) return keys[i]; }
+    return keys[0];
   }
 
-  function resize() {
+  /* ---------- plátna ---------- */
+
+  function setupCanvas() {
     dpr = Math.min(window.devicePixelRatio || 1, 2);
     W = canvas.clientWidth;
     H = canvas.clientHeight;
     canvas.width = Math.round(W * dpr);
     canvas.height = Math.round(H * dpr);
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    S = Math.sqrt(W * H);
-    var slow = reduced ? 0.25 : 1;
-    circles.forEach(function (c) {
-      var s = SIZES[c.size];
-      c.r = Math.min(Math.max(s.k * S, s.min), Math.min(W, H) * 0.3);
-      var oldSpeed = c.speed || 0;
-      c.speed = c.speedK * S * slow;
-      if (oldSpeed && c.mode === "free") {
-        var f = c.speed / oldSpeed; c.vx *= f; c.vy *= f;
+    R = Math.hypot(W, H) / 2 * 1.04;
+    offScale = Math.min(dpr, CONFIG.maxTextura / (2 * R));
+    var size = Math.ceil(2 * R * offScale);
+    linesCv = linesCv || document.createElement("canvas");
+    dotsCv = dotsCv || document.createElement("canvas");
+    linesCv.width = linesCv.height = dotsCv.width = dotsCv.height = size;
+    lctx = linesCv.getContext("2d");
+    dctx = dotsCv.getContext("2d");
+    [lctx, dctx].forEach(function (c) { c.setTransform(offScale, 0, 0, offScale, R * offScale, R * offScale); });
+    lctx.lineCap = "butt";
+    lctx.lineJoin = "round";
+  }
+
+  /* ---------- generování sítě ---------- */
+
+  function makeSeg(parent, x0, y0, a, len, depth, type, start) {
+    var x1 = x0 + Math.cos(a) * len, y1 = y0 + Math.sin(a) * len;
+    var bend = rand(-CONFIG.zakriveni, CONFIG.zakriveni) * len;
+    var cx = (x0 + x1) / 2 - Math.sin(a) * bend, cy = (y0 + y1) / 2 + Math.cos(a) * bend;
+    var pts = [], cum = [0];
+    for (var i = 0; i <= STEPS; i++) {
+      var t = i / STEPS, u = 1 - t;
+      pts.push([u * u * x0 + 2 * u * t * cx + t * t * x1, u * u * y0 + 2 * u * t * cy + t * t * y1]);
+      if (i) cum.push(cum[i - 1] + Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]));
+    }
+    var L = cum[STEPS];
+    return {
+      pts: pts, cum: cum, len: L, a: Math.atan2(y1 - cy, x1 - cx), x1: x1, y1: y1,
+      depth: depth, parent: parent, type: type,
+      width: Math.max(0.5, 1.5 - depth * 0.09),
+      alpha: Math.max(0.28, 0.62 - depth * 0.025),
+      start: start != null ? start : (parent ? parent.start + parent.dur : rand(0, 0.4)),
+      dur: L / CONFIG.rustRychlost,
+      drawn: 0, done: false, leaf: true, node: null,
+    };
+  }
+
+  function makeNode(s) {
+    var t = s.type;
+    if (s.leaf && Math.random() * 100 < types.zelena.weight) t = "zelena";
+    s.node = { x: s.x1, y: s.y1, type: t, r: types[t].size * (s.leaf ? 1 : 0.55), seg: s, label: pick(types[t].labels) };
+  }
+
+  function generate() {
+    segs = []; grown = [];
+    var max = W * H > 700000 ? CONFIG.uzlyDesktop : CONFIG.uzlyMobil;
+    extraBudget = Math.round(max * 0.35);
+    var L0 = R / 5.2, queue = [], n = CONFIG.korenu;
+    for (var i = 0; i < n; i++) {
+      var a = i / n * Math.PI * 2 + rand(-0.15, 0.15);
+      queue.push(makeSeg(null, Math.cos(a) * 4, Math.sin(a) * 4, a, L0 * rand(0.6, 1.1), 0, pickType(false)));
+    }
+    while (queue.length && segs.length < max) {
+      var s = queue.shift();
+      segs.push(s);
+      if (Math.hypot(s.x1, s.y1) > R || s.depth > 16) continue;
+      var kids = s.depth < 2 ? 2 : (Math.random() < CONFIG.vetveni ? 2 : 1);
+      if (s.depth > 3 && Math.random() < 0.07) kids = 0;
+      for (var k = 0; k < kids; k++) {
+        var ang = s.a + (kids === 2 ? (k ? 1 : -1) * rand(0.15, CONFIG.uhel) : rand(-CONFIG.uhel, CONFIG.uhel) * 0.6);
+        ang = lerpAngle(ang, Math.atan2(s.y1, s.x1), 0.12);
+        var type = Math.random() < 0.85 ? s.type : pickType(false);
+        queue.push(makeSeg(s, s.x1, s.y1, ang, Math.max(R * 0.02, s.len * rand(0.8, 0.95)), s.depth + 1, type));
       }
-      c.x = clamp(c.x, c.r, Math.max(c.r, W - c.r));
-      c.y = clamp(c.y, c.r, Math.max(c.r, H - c.r));
-      layoutText(c);
+    }
+    segs.forEach(function (s) { if (s.parent) s.parent.leaf = false; });
+    segs.forEach(makeNode);
+  }
+
+  // při „nárazu“ síť zhoustne – z existujících uzlů vyraší nové výhonky
+  function sprout(count) {
+    if (reduced) return;
+    for (var i = 0; i < count && extraBudget > 0 && grown.length; i++) {
+      var n = pick(grown), p = n.seg;
+      if (p.depth < 2) continue;
+      var type = Math.random() < 0.5 ? "cervena" : p.type;
+      var s = makeSeg(p, n.x, n.y, p.a + rand(-1, 1), p.len * rand(0.4, 0.8), p.depth + 1, type, G + rand(0, 0.8));
+      s.alpha = Math.min(0.7, s.alpha + 0.1);
+      makeNode(s);
+      segs.push(s);
+      extraBudget--;
+    }
+  }
+
+  /* ---------- růst (kreslí se jen nové kousky do vrstvy) ---------- */
+
+  function interp(s, f) {
+    var i = Math.floor(f);
+    if (i >= STEPS) return s.pts[STEPS];
+    var t = f - i, a = s.pts[i], b = s.pts[i + 1];
+    return [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
+  }
+
+  function drawNode(n) {
+    var c = types[n.type].rgb;
+    dctx.fillStyle = rgba(c, 0.16);
+    dctx.beginPath(); dctx.arc(n.x, n.y, n.r * 2.8, 0, Math.PI * 2); dctx.fill();
+    dctx.fillStyle = rgba(c, 0.95);
+    dctx.beginPath(); dctx.arc(n.x, n.y, n.r, 0, Math.PI * 2); dctx.fill();
+  }
+
+  function grow(dG) {
+    G += dG;
+    for (var k = 0; k < segs.length; k++) {
+      var s = segs[k];
+      if (s.done || G <= s.start) continue;
+      var p = Math.min(1, (G - s.start) / s.dur), f = p * STEPS;
+      if (f <= s.drawn) continue;
+      lctx.strokeStyle = rgba(types[s.type].rgb, s.alpha);
+      lctx.lineWidth = s.width;
+      lctx.beginPath();
+      var a = interp(s, s.drawn);
+      lctx.moveTo(a[0], a[1]);
+      for (var i = Math.floor(s.drawn) + 1; i < f; i++) lctx.lineTo(s.pts[i][0], s.pts[i][1]);
+      var b = interp(s, f);
+      lctx.lineTo(b[0], b[1]);
+      lctx.stroke();
+      s.drawn = f;
+      if (p >= 1) { s.done = true; drawNode(s.node); grown.push(s.node); }
+    }
+  }
+
+  /* ---------- signály ---------- */
+
+  function pointAt(s, d) {
+    for (var j = 1; j <= STEPS; j++) {
+      if (s.cum[j] >= d) {
+        var t = (d - s.cum[j - 1]) / ((s.cum[j] - s.cum[j - 1]) || 1), a = s.pts[j - 1], b = s.pts[j];
+        return [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
+      }
+    }
+    return s.pts[STEPS];
+  }
+
+  function inwardPath(seg) { var p = []; while (seg) { p.push(seg); seg = seg.parent; } return p; }
+  function pathLen(p) { return p.reduce(function (s, x) { return s + x.len; }, 0); }
+
+  function spawnSignal(node, o) {
+    var path = inwardPath(node.seg);
+    if (o.out) path.reverse();
+    var sig = {
+      path: path, out: !!o.out, i: 0, d: 0, rgb: o.rgb || types[node.type].rgb,
+      size: o.size || 1.1, trailLen: o.trail || 6, trail: [],
+      speed: o.duration ? pathLen(path) / o.duration : CONFIG.signalRychlost * rand(0.6, 1.4),
+      story: !!o.story, onEnd: o.onEnd, done: false,
+    };
+    signals.push(sig);
+    return sig;
+  }
+
+  function advance(sig, dist) {
+    while (dist > 0 && !sig.done) {
+      var s = sig.path[sig.i], rem = s.len - sig.d;
+      if (dist < rem) { sig.d += dist; dist = 0; }
+      else {
+        dist -= rem; sig.i++; sig.d = 0;
+        if (sig.i >= sig.path.length) { sig.done = true; if (sig.onEnd) sig.onEnd(); }
+      }
+    }
+    if (!sig.done) {
+      var seg = sig.path[sig.i];
+      sig.trail.push(pointAt(seg, sig.out ? sig.d : seg.len - sig.d));
+      if (sig.trail.length > sig.trailLen) sig.trail.shift();
+    }
+  }
+
+  function updateSignals(dt) {
+    if (!reduced && grown.length > 40) {
+      var want = Math.round(signalTarget * Math.min(1, grown.length / 400));
+      var ambient = signals.filter(function (s) { return !s.story; }).length;
+      for (var i = ambient; i < want; i++) spawnSignal(pick(grown), {});
+    }
+    signals.forEach(function (s) { advance(s, s.speed * dt * (s.story ? 1 : ts)); });
+    signals = signals.filter(function (s) { return !s.done; });
+  }
+
+  /* ---------- příběh ---------- */
+
+  function toScreen(x, y) {
+    var c = Math.cos(rot), s = Math.sin(rot);
+    return [W / 2 + (x * c - y * s) * sc, H / 2 + (x * s + y * c) * sc];
+  }
+
+  function nextLabel(list) {
+    var arr = cfg.pribeh[list] || [];
+    if (!arr.length) return "";
+    return arr[storyIdx[list]++ % arr.length];
+  }
+
+  function pickVisibleNode(type, avoid) {
+    var m = Math.min(W, H), best = [], fallback = [];
+    grown.forEach(function (n) {
+      var p = toScreen(n.x, n.y), dx = p[0] - W / 2, dy = p[1] - H / 2, d = Math.hypot(dx, dy);
+      if (p[0] < 80 || p[0] > W - 80 || p[1] < 80 || p[1] > H - 80) return;
+      if (d < m * 0.2 || d > m * 0.46) return;
+      if (avoid) {
+        var q = toScreen(avoid.x, avoid.y);
+        var diff = Math.abs(Math.atan2(Math.sin(Math.atan2(dy, dx) - Math.atan2(q[1] - H / 2, q[0] - W / 2)),
+          Math.cos(Math.atan2(dy, dx) - Math.atan2(q[1] - H / 2, q[0] - W / 2))));
+        if (diff < 1.4) return;
+      }
+      (n.type === type ? best : fallback).push(n);
     });
+    return best.length ? pick(best) : (fallback.length ? pick(fallback) : null);
   }
 
-  // zalomí popisek tak, aby se vešel do kolečka
-  function layoutText(c) {
-    var words = c.text.split(/\s+/);
-    var maxW = c.r * 1.5;
-    for (var f = Math.max(11, c.r * 0.3); f >= 8; f -= 0.5) {
-      ctx.font = "600 " + f + "px Inter, system-ui, -apple-system, sans-serif";
-      var lines = [], line = "", ok = true;
-      for (var i = 0; i < words.length; i++) {
-        var test = line ? line + " " + words[i] : words[i];
-        if (ctx.measureText(test).width <= maxW) { line = test; continue; }
-        if (!line) { ok = false; break; }
-        lines.push(line); line = words[i];
-        if (ctx.measureText(line).width > maxW) { ok = false; break; }
-      }
-      if (!ok) continue;
-      lines.push(line);
-      if (lines.length * f * 1.18 <= c.r * 1.3) { c.fs = f; c.lines = lines; return; }
-    }
-    // dlouhé slovo se nevejde ani při 8 px → zmenši písmo tak, aby se vešlo
-    ctx.font = "600 8px Inter, system-ui, -apple-system, sans-serif";
-    var widest = Math.max.apply(null, words.map(function (w) { return ctx.measureText(w).width; }));
-    c.fs = Math.max(5, 8 * maxW / widest);
-    c.lines = words;
+  function newStory(wait) { story = { phase: "wait", t: 0, wait: wait }; }
+
+  function arriveGreen() {
+    story.phase = "calm"; story.t = 0;
+    center.tc = types.zelena.rgb; center.ta = 0.6;
+    tsTarget = 0.25; tsRate = 1.2; netAlphaTarget = 0.7;
   }
 
-  /* ---------- scénář: zajímavé do středu → náraz → velké zabere střed ---------- */
-
-  function newSeq(delay) { seq = { phase: "idle", t: 0, wait: delay }; }
-
-  function stepSeq(dt) {
-    seq.t += dt;
-    var cx = W / 2, cy = H / 2;
-    var s = seq.small, b = seq.big, p;
-
-    switch (seq.phase) {
-      case "idle":
-        if (seq.t < seq.wait) return;
-        var smalls = circles.filter(function (c) { return c.size === "zajimave" && c.mode === "free"; });
-        if (!smalls.length) smalls = circles.filter(function (c) { return c.size === "mala" && c.mode === "free"; });
-        var bigs = circles.filter(function (c) { return c.size === "velka" && c.naraz && c.mode === "free"; });
-        if (!bigs.length) bigs = circles.filter(function (c) { return c.size === "velka" && c.mode === "free"; });
-        if (!smalls.length || !bigs.length) { seq.t = 0; seq.wait = 1; return; }
-        s = seq.small = pick(smalls);
-        b = seq.big = pick(bigs);
-        s.mode = "scripted"; s.fx = s.x; s.fy = s.y;
-        seq.phase = "approach"; seq.t = 0;
-        return;
-
-      case "approach":
-        p = Math.min(1, seq.t / (reduced ? T.approach * 2 : T.approach));
-        s.x = s.fx + (cx - s.fx) * easeInOut(p);
-        s.y = s.fy + (cy - s.fy) * easeInOut(p);
-        if (p >= 1) { seq.phase = "hold"; seq.t = 0; }
-        return;
-
-      case "hold":
-        s.x = cx; s.y = cy;
-        if (seq.t < T.hold) return;
-        b.mode = "scripted"; b.fx = b.x; b.fy = b.y;
-        seq.t = 0;
-        if (reduced) {
-          // bez nárazu: zajímavé tiše odpluje, velké pomalu připluje
-          s.mode = "free";
-          setVel(s, rand(0, Math.PI * 2), s.speed);
-          seq.phase = "glide";
-        } else {
-          var dist = Math.hypot(cx - b.x, cy - b.y);
-          seq.chargeDur = clamp(dist / (1.3 * S), 0.55, 1.1);
-          seq.hit = false;
-          seq.phase = "charge";
-        }
-        return;
-
-      case "charge":
-        p = Math.min(1, seq.t / seq.chargeDur);
-        b.x = b.fx + (cx - b.fx) * easeIn(p);
-        b.y = b.fy + (cy - b.fy) * easeIn(p);
-        if (!seq.hit && Math.hypot(s.x - b.x, s.y - b.y) < b.r + s.r * 0.8) {
-          seq.hit = true;
-          var ang = Math.atan2(s.y - b.y, s.x - b.x);
-          if (Math.hypot(s.y - b.y, s.x - b.x) < 1) ang = Math.atan2(cy - b.fy, cx - b.fx);
-          ang += rand(-0.35, 0.35);
-          s.mode = "knocked";
-          setVel(s, ang, 1.7 * S);
-          b.bump = 1;
-        }
-        if (p >= 1) { seq.phase = "occupy"; seq.t = 0; }
-        return;
-
-      case "glide":
-        p = Math.min(1, seq.t / 4);
-        b.x = b.fx + (cx - b.fx) * easeInOut(p);
-        b.y = b.fy + (cy - b.fy) * easeInOut(p);
-        if (p >= 1) { seq.phase = "occupy"; seq.t = 0; }
-        return;
-
-      case "occupy":
-        var shake = reduced ? 0 : 2.2 * Math.max(0, 1 - seq.t / T.occupy);
-        b.x = cx + rand(-shake, shake);
-        b.y = cy + rand(-shake, shake);
-        if (seq.t < T.occupy) return;
-        b.mode = "free";
-        setVel(b, rand(0, Math.PI * 2), b.speed);
-        newSeq(rand(T.gap[0], T.gap[1]));
-        return;
-    }
-  }
-
-  /* ---------- pohyb ---------- */
-
-  function move(c, dt) {
-    if (c.mode === "scripted") return;
-
-    if (c.mode === "knocked") {
-      var k = Math.exp(-1.3 * dt);
-      c.vx *= k; c.vy *= k;
-      var v = Math.hypot(c.vx, c.vy);
-      if (v <= c.speed) {
-        c.mode = "free";
-        var f = c.speed / (v || 1); c.vx *= f; c.vy *= f;
-      }
-    } else {
-      // náhodné kličkování
-      var jitter = reduced ? 0.6 : 2.5;
-      var maxSpin = reduced ? 0.25 : 1.2;
-      c.spin = clamp(c.spin + rand(-1, 1) * jitter * dt, -maxSpin, maxSpin);
-      var a = c.spin * dt, cos = Math.cos(a), sin = Math.sin(a);
-      var vx = c.vx * cos - c.vy * sin;
-      c.vy = c.vx * sin + c.vy * cos;
-      c.vx = vx;
-      pointerForce(c, dt);
-    }
-
-    c.x += c.vx * dt;
-    c.y += c.vy * dt;
-    if (c.x < c.r)     { c.x = c.r;     c.vx = Math.abs(c.vx); }
-    if (c.x > W - c.r) { c.x = W - c.r; c.vx = -Math.abs(c.vx); }
-    if (c.y < c.r)     { c.y = c.r;     c.vy = Math.abs(c.vy); }
-    if (c.y > H - c.r) { c.y = H - c.r; c.vy = -Math.abs(c.vy); }
-  }
-
-  function pointerForce(c, dt) {
-    if (pointer.active) {
-      var R = POINTER.radius * S + c.r;
-      var dx = c.x - pointer.x, dy = c.y - pointer.y;
-      var d = Math.hypot(dx, dy);
-      if (d < R && d > 0.5) {
-        var f = 1 - d / R;
-        var k = reduced ? 0.3 : 1;
-        // odstrčení od kurzoru + strhnutí ve směru pohybu myši
-        c.vx += (dx / d * POINTER.push * S * f * f + pointer.vx * POINTER.drag * f) * k * dt * 4;
-        c.vy += (dy / d * POINTER.push * S * f * f + pointer.vy * POINTER.drag * f) * k * dt * 4;
+  function arriveRed() {
+    story.phase = "redHold"; story.t = 0;
+    center.c = types.cervena.rgb.slice(); center.a = 1;
+    center.tc = [255, 255, 255]; center.ta = 0.12;
+    hideLabel(ui.green); story.green = null;
+    ts = reduced ? 1 : 2.4; tsTarget = 1; tsRate = 0.5; netAlphaTarget = 1;
+    growBoost = 2.5;
+    sprout(70);
+    if (!reduced) {
+      var leaves = grown.filter(function (n) { return n.seg.leaf; });
+      for (var i = 0; i < 12 && leaves.length; i++) {
+        spawnSignal(pick(leaves), { out: true, rgb: types.cervena.rgb, size: 1.8, trail: 10, duration: rand(1.2, 1.8), story: true });
       }
     }
-    // rychlost se pomalu vrací k normálu
-    var now = Math.hypot(c.vx, c.vy) || 1;
-    var target = now + (c.speed - now) * (1 - Math.exp(-1.2 * dt));
-    var lim = Math.min(target, c.speed * 8);
-    c.vx *= lim / now; c.vy *= lim / now;
   }
 
-  function onPointer(e) {
-    var now = performance.now();
-    var dt = Math.max(0.008, (now - pointer.t) / 1000);
-    if (pointer.active && dt < 0.2) {
-      pointer.vx = clamp((e.clientX - pointer.x) / dt, -3000, 3000);
-      pointer.vy = clamp((e.clientY - pointer.y) / dt, -3000, 3000);
-    } else {
-      pointer.vx = pointer.vy = 0;
+  function stepStory(dt) {
+    var s = story;
+    s.t += dt;
+    switch (s.phase) {
+      case "wait":
+        if (s.t < s.wait) return;
+        s.green = pickVisibleNode("zelena");
+        if (!s.green) { s.t = 0; s.wait = 1; return; }
+        showLabel(ui.green, nextLabel("zelene"), types.zelena.rgb);
+        s.phase = "greenGlow"; s.t = 0;
+        return;
+      case "greenGlow":
+        if (s.t < 1.6) return;
+        s.phase = "greenTravel"; s.t = 0;
+        if (reduced) arriveGreen();
+        else spawnSignal(s.green, { rgb: types.zelena.rgb, size: 2.2, trail: 12, duration: 2.6, story: true, onEnd: arriveGreen });
+        return;
+      case "calm":
+        if (s.t < 3) return;
+        s.red = pickVisibleNode("cervena", s.green);
+        if (!s.red) { s.t = 2.5; return; }
+        showLabel(ui.red, nextLabel("cervene"), types.cervena.rgb);
+        s.phase = "redTravel"; s.t = 0;
+        if (reduced) arriveRed();
+        else spawnSignal(s.red, { rgb: types.cervena.rgb, size: 3.2, trail: 16, duration: 0.9, story: true, onEnd: arriveRed });
+        return;
+      case "redHold":
+        if (s.t < 2.8) return;
+        hideLabel(ui.red);
+        newStory(rand(CONFIG.pauza[0], CONFIG.pauza[1]));
+        return;
     }
-    pointer.x = e.clientX; pointer.y = e.clientY; pointer.t = now;
-    pointer.active = true;
   }
-  function onPointerLeave() { pointer.active = false; }
-  function onPointerUp(e) { if (e.pointerType !== "mouse") onPointerLeave(); }
+
+  /* ---------- popisky ---------- */
+
+  function makeLabel(cls) {
+    var el = document.createElement("div");
+    el.className = "chaos-label " + (cls || "");
+    canvas.parentNode.appendChild(el);
+    return el;
+  }
+
+  function showLabel(el, text, rgb) {
+    if (!text) return;
+    el.textContent = text;
+    el.style.color = rgba(rgb, 1);
+    el.style.borderColor = rgba(rgb, 0.7);
+    el.classList.add("is-visible");
+  }
+  function hideLabel(el) { el.classList.remove("is-visible"); }
+
+  function placeLabel(el, n) {
+    var p = toScreen(n.x, n.y), right = p[0] < W - 220;
+    el.style.transform = "translate(" + Math.round(p[0] + (right ? 14 : -14)) + "px," + Math.round(p[1]) + "px) translate(" + (right ? "0" : "-100%") + ",-50%)";
+  }
+
+  /* ---------- najetí / klepnutí ---------- */
+
+  function findNode(px, py, maxDist) {
+    var c = Math.cos(-rot), s = Math.sin(-rot);
+    var dx = (px - W / 2) / sc, dy = (py - H / 2) / sc;
+    var lx = dx * c - dy * s, ly = dx * s + dy * c;
+    var best = null, bd = maxDist / sc;
+    for (var i = 0; i < grown.length; i++) {
+      var n = grown[i], d = Math.hypot(n.x - lx, n.y - ly);
+      if (d < bd) { bd = d; best = n; }
+    }
+    return best;
+  }
+
+  function onMove(e) {
+    if (e.pointerType !== "mouse") return;
+    pointer.x = e.clientX; pointer.y = e.clientY; pointer.has = true;
+  }
+  function onDown(e) {
+    if (e.pointerType === "mouse") return;
+    var n = findNode(e.clientX, e.clientY, 26);
+    if (n) { hover = n; tapUntil = time + 2.5; showLabel(ui.hover, n.label, types[n.type].rgb); }
+  }
+  function onLeave() { pointer.has = false; }
+
+  function updateHover() {
+    if (time < tapUntil) return;
+    if (pointer.has && frameNo % 2 === 0) hover = findNode(pointer.x, pointer.y, 14);
+    else if (!pointer.has) hover = null;
+    if (hover) showLabel(ui.hover, hover.label, types[hover.type].rgb);
+    else hideLabel(ui.hover);
+    canvas.style.cursor = hover ? "pointer" : "";
+  }
 
   /* ---------- kreslení ---------- */
 
-  function draw(c) {
-    var r = c.r * (1 + 0.08 * c.bump);
-    ctx.fillStyle = c.fill;
-    ctx.beginPath();
-    ctx.arc(c.x, c.y, r, 0, Math.PI * 2);
-    ctx.fill();
-
-    ctx.fillStyle = c.color;
-    ctx.font = "600 " + c.fs + "px Inter, system-ui, -apple-system, sans-serif";
-    var lh = c.fs * 1.18;
-    var y0 = c.y - (c.lines.length - 1) * lh / 2;
-    for (var i = 0; i < c.lines.length; i++) ctx.fillText(c.lines[i], c.x, y0 + i * lh);
+  function glow(x, y, r, rgb, a) {
+    var g = ctx.createRadialGradient(x, y, 0, x, y, r);
+    g.addColorStop(0, rgba(rgb, a));
+    g.addColorStop(1, rgba(rgb, 0));
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
   }
+
+  function draw() {
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.globalCompositeOperation = "source-over";
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = "#000";
+    ctx.fillRect(0, 0, W, H);
+
+    var P = CONFIG.pulz;
+    sc = 1 + 0.008 * Math.sin(pulseT * 0.9);
+    ctx.translate(W / 2, H / 2);
+    ctx.rotate(rot);
+    ctx.scale(sc, sc);
+
+    ctx.globalAlpha = netAlpha * (1 - P + P * Math.sin(pulseT * 1.3));
+    ctx.drawImage(linesCv, -R, -R, 2 * R, 2 * R);
+    ctx.globalCompositeOperation = "lighter";
+    ctx.globalAlpha = netAlpha * (1 - P + P * Math.sin(pulseT * 1.9 + 1.2));
+    ctx.drawImage(dotsCv, -R, -R, 2 * R, 2 * R);
+    ctx.globalAlpha = 1;
+
+    // signály
+    signals.forEach(function (s) {
+      var t = s.trail;
+      if (!t.length) return;
+      if (t.length > 1) {
+        ctx.strokeStyle = rgba(s.rgb, s.story ? 0.7 : 0.45);
+        ctx.lineWidth = s.size * 0.9;
+        ctx.beginPath(); ctx.moveTo(t[0][0], t[0][1]);
+        for (var i = 1; i < t.length; i++) ctx.lineTo(t[i][0], t[i][1]);
+        ctx.stroke();
+      }
+      var h = t[t.length - 1];
+      if (s.story) glow(h[0], h[1], s.size * 7, s.rgb, 0.6);
+      ctx.fillStyle = rgba(s.rgb, 1);
+      ctx.beginPath(); ctx.arc(h[0], h[1], s.size, 0, Math.PI * 2); ctx.fill();
+    });
+
+    // střed
+    var m = Math.min(W, H);
+    glow(0, 0, Math.max(50, m * 0.16), center.c, center.a);
+    glow(0, 0, 6, center.c, Math.min(1, center.a + 0.3));
+
+    // zvýrazněné uzly příběhu
+    if (story && story.green) {
+      var gp = 0.5 + 0.5 * Math.sin(time * 4);
+      glow(story.green.x, story.green.y, 18 + gp * 6, types.zelena.rgb, 0.55);
+      ctx.fillStyle = rgba(types.zelena.rgb, 1);
+      ctx.beginPath(); ctx.arc(story.green.x, story.green.y, 3, 0, Math.PI * 2); ctx.fill();
+    }
+    if (story && story.red && (story.phase === "redTravel" || story.phase === "redHold")) {
+      glow(story.red.x, story.red.y, 24, types.cervena.rgb, story.phase === "redTravel" ? 0.8 : 0.4);
+    }
+    if (hover) {
+      ctx.strokeStyle = rgba(types[hover.type].rgb, 0.9);
+      ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.arc(hover.x, hover.y, hover.r + 5, 0, Math.PI * 2); ctx.stroke();
+    }
+    ctx.globalCompositeOperation = "source-over";
+
+    if (story && story.green) placeLabel(ui.green, story.green);
+    if (story && story.red) placeLabel(ui.red, story.red);
+    if (hover) placeLabel(ui.hover, hover);
+  }
+
+  /* ---------- smyčka ---------- */
+
+  function ease(v, target, rate, dt) { return v + (target - v) * (1 - Math.exp(-rate * dt)); }
 
   function frame(now) {
     var dt = Math.min(0.05, (now - last) / 1000 || 0);
-    last = now;
+    last = now; time += dt; frameNo++;
 
-    stepSeq(dt);
-    // myš se nehýbe → její „strhnutí“ odezní
-    var decay = Math.exp(-8 * dt);
-    pointer.vx *= decay; pointer.vy *= decay;
-    circles.forEach(function (c) {
-      move(c, dt);
-      c.bump *= Math.exp(-4 * dt);
-    });
+    // když to nestíhá 45 fps, ubereme signály
+    if (time > 1 && perf.checked < 2) {
+      perf.n++; perf.sum += dt;
+      if (perf.n >= 120) {
+        if (perf.sum / perf.n > 1 / 45) signalTarget = Math.round(signalTarget * 0.5);
+        perf.n = 0; perf.sum = 0; perf.checked++;
+      }
+    }
 
-    ctx.clearRect(0, 0, W, H);
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    // pořadí: běžná kolečka, odražené zajímavé, pak to, co je ve středu, navrch
-    var order = circles.filter(function (c) { return c.mode === "free"; })
-      .concat(circles.filter(function (c) { return c.mode === "knocked"; }))
-      .concat(seq.small && seq.small.mode === "scripted" ? [seq.small] : [])
-      .concat(seq.big && seq.big.mode === "scripted" ? [seq.big] : []);
-    order.forEach(draw);
+    ts = ease(ts, tsTarget, tsRate, dt);
+    netAlpha = ease(netAlpha, netAlphaTarget, 1.5, dt);
+    growBoost *= Math.exp(-0.7 * dt);
+    for (var i = 0; i < 3; i++) center.c[i] = ease(center.c[i], center.tc[i], 2, dt);
+    center.a = ease(center.a, center.ta, 1.2, dt);
 
+    if (reduced) {
+      pulseT += dt * 0.35;
+    } else {
+      rot += CONFIG.rotace * ts * dt;
+      pulseT += dt * ts;
+      grow(dt * (1 + growBoost) * ts);
+    }
+    stepStory(dt);
+    updateSignals(dt);
+    updateHover();
+    draw();
     raf = requestAnimationFrame(frame);
   }
 
   /* ---------- API ---------- */
 
-  function onResize() { resize(); }
+  function build() {
+    setupCanvas();
+    generate();
+    signals = [];
+    if (reduced) grow(1e9);
+    else { var g = G; G = 0; grow(g); }
+  }
+
+  function onResize() {
+    build();
+    if (story) { hideLabel(ui.green); hideLabel(ui.red); }
+    newStory(1.5);
+  }
 
   function start(cnv, config) {
     stop();
@@ -337,28 +528,33 @@
     ctx = canvas.getContext("2d");
     cfg = config;
     reduced = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (!ui) ui = { green: makeLabel("chaos-label--story"), red: makeLabel("chaos-label--story"), hover: makeLabel() };
+    setupTypes();
+    G = 0; rot = 0; ts = 1; tsTarget = 1; netAlpha = netAlphaTarget = 1; time = 0; pulseT = 0;
+    growBoost = reduced ? 0 : 4;
+    center.c = [255, 255, 255]; center.a = 0.12; center.tc = [255, 255, 255]; center.ta = 0.12;
+    signalTarget = W * H > 700000 || canvas.clientWidth * canvas.clientHeight > 700000 ? CONFIG.signaly : Math.round(CONFIG.signaly / 2);
+    perf = { n: 0, sum: 0, checked: 0 };
+    hover = null; tapUntil = 0;
     build();
-    newSeq(T.firstCycle);
+    newStory(2.5);
     last = performance.now();
     raf = requestAnimationFrame(frame);
     window.addEventListener("resize", onResize);
-    window.addEventListener("pointermove", onPointer);
-    window.addEventListener("pointerdown", onPointer);
-    document.documentElement.addEventListener("pointerleave", onPointerLeave);
-    window.addEventListener("pointerup", onPointerUp);
-    pointer.active = false;
-    if (document.fonts && document.fonts.ready) document.fonts.ready.then(function () { if (raf) resize(); });
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerdown", onDown);
+    document.documentElement.addEventListener("pointerleave", onLeave);
   }
 
   function stop() {
     if (raf) cancelAnimationFrame(raf);
     raf = null;
     window.removeEventListener("resize", onResize);
-    window.removeEventListener("pointermove", onPointer);
-    window.removeEventListener("pointerdown", onPointer);
-    document.documentElement.removeEventListener("pointerleave", onPointerLeave);
-    window.removeEventListener("pointerup", onPointerUp);
-    pointer.active = false;
+    window.removeEventListener("pointermove", onMove);
+    window.removeEventListener("pointerdown", onDown);
+    document.documentElement.removeEventListener("pointerleave", onLeave);
+    if (ui) { hideLabel(ui.green); hideLabel(ui.red); hideLabel(ui.hover); }
+    pointer.has = false;
   }
 
   window.Chaos = { start: start, stop: stop };
