@@ -77,6 +77,45 @@
     return card;
   }
 
+  // screenshot bez karty (průhledný); klepnutí ho zvětší s původním černým pozadím
+  function screenFigure(o) {
+    var fig = el("figure", "screen");
+    var img = new Image();
+    img.alt = "";
+    img.loading = "lazy";
+    img.decoding = "async";
+    img.src = o.src;
+    fig.appendChild(img);
+    fig.setAttribute("role", "button");
+    fig.setAttribute("tabindex", "0");
+    fig.setAttribute("aria-label", "Zvětšit");
+    var open = function () { lightbox(o.velky || o.src); };
+    fig.addEventListener("click", open);
+    fig.addEventListener("keydown", function (e) { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); open(); } });
+    return fig;
+  }
+
+  // zvětšený obrázek přes celou obrazovku; zavře se klepnutím nebo Esc
+  var box = null;
+  function lightbox(src) {
+    if (!box) {
+      box = el("div", "lightbox");
+      box.setAttribute("role", "dialog");
+      box.setAttribute("aria-label", "Zvětšený obrázek");
+      box.appendChild(el("button", "lightbox-close", "×"));
+      box.appendChild(new Image());
+      box.addEventListener("click", closeBox);
+      document.addEventListener("keydown", function (e) {
+        if (e.key === "Escape" && box.classList.contains("is-open")) { e.stopImmediatePropagation(); closeBox(); }
+      }, true);
+      document.body.appendChild(box);
+    }
+    box.querySelector("img").src = src;
+    box.scrollTop = 0;
+    box.classList.add("is-open");
+  }
+  function closeBox() { box.classList.remove("is-open"); }
+
   /* ---------- stránka ---------- */
 
   function title(text) {
@@ -105,10 +144,13 @@
       (s.prispevky || []).forEach(function (p) {
         sec.appendChild(postCard(p, F));
       });
+      (s.obrazky || []).forEach(function (o) {
+        sec.appendChild(screenFigure(o));
+      });
       (s.akce || []).forEach(function (a) {
         sec.appendChild(eventCard(a, F.zdarma));
       });
-      if (!(s.prispevky || []).length && !(s.akce || []).length) {
+      if (!(s.prispevky || []).length && !(s.akce || []).length && !(s.obrazky || []).length) {
         sec.appendChild(emptyCard(F.prazdnaKarta));
       }
       root.appendChild(sec);

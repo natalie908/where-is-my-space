@@ -121,11 +121,12 @@ window.OBSAH = {
       },
       {
         nazev: "Akce týdne (agent)",
-        popis: "Jednou týdně mi AI agent vybere akce v Brně podle mých témat (technologie, jóga, festivaly, design, přednášky). Preferuje akce zdarma.",
-        // screenshoty z mé stránky Kam v Brně (agent). cela: true = obrázek se neořízne
-        prispevky: [
-          { autor: "Kam v Brně", profilovka: "", kde: "AI agent", cas: "24.–31. 10. 2026",
-            text: "", foto: ["images/kam-v-brne-1.png", "images/kam-v-brne-2.png"], cela: true, reakce: "" },
+        popis: "",
+        // screenshoty mé stránky Kam v Brně: src = průhledná verze ve feedu,
+        // velky = původní obrázek, který se ukáže po klepnutí (zvětšený, s černým pozadím)
+        obrazky: [
+          { src: "images/kam-v-brne-1-pruhledny.png", velky: "images/kam-v-brne-1.png" },
+          { src: "images/kam-v-brne-2-pruhledny.png", velky: "images/kam-v-brne-2.png" },
         ],
       },
     ],
