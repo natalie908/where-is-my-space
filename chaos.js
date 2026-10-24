@@ -34,7 +34,7 @@
 
   var canvas, ctx, cfg, raf = null, last = 0, time = 0, pulseT = 0;
   var W = 0, H = 0, dpr = 1, R = 0, sc = 1;
-  var types = {}, typeKeys = [];
+  var types = {}, typeKeys = [], PAL = null, grainCv = null;
   var segs = [], grown = [], buckets = [], bucketMap = {}, G = 0, extraBudget = 0;
   var rot = 0, ts = 1, tsTarget = 1, tsRate = 1.5, netAlpha = 1, netAlphaTarget = 1, growBoost = 0;
   var chaosLevel = 0.5, chaosTarget = 0.5, chaosRate = 1;
@@ -70,12 +70,56 @@
   }
 
   function setupTypes() {
+    var pal = cfg.paleta || {}, pt = pal.typy || {};
+    PAL = {
+      bg: pal.pozadi || "#0A090B",
+      grain: pal.zrno != null ? pal.zrno : 0.06,
+      fill: (pal.vypln || ["#2E3FD1", "#6E9A3A"]).map(hexRgb),
+      calm: hexRgb(pal.stred || pt.zelena || "#22C7B0"),
+      red: hexRgb(pal.rudy || pt.cervena || "#F2271C"),
+    };
     types = {};
     typeKeys = Object.keys(cfg.typy);
     typeKeys.forEach(function (k) {
       var t = cfg.typy[k];
-      types[k] = { rgb: hexRgb(t.barva), size: t.velikost, weight: t.cetnost, labels: t.popisky && t.popisky.length ? t.popisky : [k] };
+      types[k] = { rgb: hexRgb(pt[k] || t.barva || "#888888"), size: t.velikost, weight: t.cetnost, labels: t.popisky && t.popisky.length ? t.popisky : [k] };
     });
+  }
+
+  // statická vrstva filmového zrna a škrábanců – vykreslí se jednou, přes canvas ji skládá prohlížeč
+  function makeGrain() {
+    if (!grainCv) {
+      grainCv = document.createElement("canvas");
+      grainCv.className = "chaos-grain";
+      grainCv.setAttribute("aria-hidden", "true");
+      canvas.parentNode.insertBefore(grainCv, canvas.nextSibling);
+    }
+    grainCv.style.opacity = PAL.grain;
+    grainCv.style.display = PAL.grain > 0 ? "" : "none";
+    var w = Math.min(2048, Math.ceil(W)), h = Math.min(2048, Math.ceil(H));
+    if (grainCv.width === w && grainCv.height === h) return;
+    grainCv.width = w; grainCv.height = h;
+    var g = grainCv.getContext("2d"), img = g.createImageData(w, h), d = img.data;
+    for (var i = 0; i < d.length; i += 4) {
+      var v = (Math.random() * 255) | 0;
+      d[i] = d[i + 1] = d[i + 2] = v; d[i + 3] = 255;
+    }
+    g.putImageData(img, 0, 0);
+    g.lineCap = "round";
+    for (var k = 0; k < 10; k++) {
+      var x = rand(0, w), y = rand(0, h), len = rand(0.08, 0.45) * h;
+      var ang = Math.PI / 2 + rand(-0.25, 0.25) + (Math.random() < 0.2 ? Math.PI / 2 : 0);
+      var ex = x + Math.cos(ang) * len, ey = y + Math.sin(ang) * len;
+      g.strokeStyle = Math.random() < 0.75 ? "rgba(255,255,255,0.95)" : "rgba(0,0,0,0.95)";
+      g.lineWidth = rand(0.6, 1.6);
+      g.beginPath(); g.moveTo(x, y);
+      g.quadraticCurveTo((x + ex) / 2 + rand(-12, 12), (y + ey) / 2, ex, ey);
+      g.stroke();
+    }
+    for (k = 0; k < 40; k++) {
+      g.fillStyle = Math.random() < 0.6 ? "#fff" : "#000";
+      g.beginPath(); g.arc(rand(0, w), rand(0, h), rand(0.6, 1.8), 0, Math.PI * 2); g.fill();
+    }
   }
 
   function pickType(allowGreen) {
@@ -101,7 +145,7 @@
   function addToBucket(s, key) {
     var b = bucketMap[key];
     if (!b) {
-      b = bucketMap[key] = { rgb: types[s.type].rgb, alpha: s.alpha, width: s.width, list: [] };
+      b = bucketMap[key] = { rgb: s.filler != null ? PAL.fill[s.filler] : types[s.type].rgb, alpha: s.alpha, width: s.width, list: [] };
       buckets.push(b);
     }
     b.list.push(s);
@@ -167,6 +211,23 @@
     }
     segs.forEach(function (s) { if (s.parent) s.parent.leaf = false; });
     segs.forEach(function (s) { makeNode(s); addToBucket(s, s.type + "|" + Math.min(s.depth, 12)); });
+    addFillers(Math.round(segs.length * 0.3));
+  }
+
+  // výplňové větve bez uzlu – střídají dvě barvy z palety, slabší, dodávají hloubku
+  function addFillers(count) {
+    var base = segs.slice();
+    for (var i = 0; i < count; i++) {
+      var p = pick(base);
+      if (p.depth < 1) continue;
+      var side = Math.random() < 0.5 ? -1 : 1;
+      var s = makeSeg(p, p.x1, p.y1, p.a + side * rand(0.4, 1.1), p.len * rand(0.6, 1.1), p.depth + 1, "vypln");
+      s.filler = i % PAL.fill.length;
+      s.alpha *= 0.5;
+      s.width = Math.max(0.5, s.width * 0.8);
+      segs.push(s);
+      addToBucket(s, "vypln" + s.filler + "|" + Math.min(s.depth, 12));
+    }
   }
 
   // při „nárazu“ síť zhoustne – z existujících uzlů vyraší nové výhonky
@@ -191,7 +252,7 @@
     for (var k = 0; k < segs.length; k++) {
       var s = segs[k];
       if (!s.started && G > s.start) s.started = true;
-      if (s.started && !s.done && G >= s.start + s.dur) { s.done = true; grown.push(s.node); }
+      if (s.started && !s.done && G >= s.start + s.dur) { s.done = true; if (s.node) grown.push(s.node); }
     }
   }
 
@@ -299,14 +360,14 @@
 
   function arriveGreen() {
     story.phase = "calm"; story.t = 0;
-    center.tc = types.zelena.rgb; center.ta = 0.6;
+    center.tc = PAL.calm; center.ta = 0.6;
     tsTarget = 0.25; tsRate = 1.2; netAlphaTarget = 0.7;
     chaosTarget = CONFIG.chaosZeleny; chaosRate = 1.2;
   }
 
   function arriveRed() {
     story.phase = "redHold"; story.t = 0;
-    center.c = types.cervena.rgb.slice(); center.a = 1;
+    center.c = PAL.red.slice(); center.a = 1;
     center.tc = [255, 255, 255]; center.ta = 0.12;
     hideLabel(ui.green); story.green = null;
     ts = reduced ? 1 : 2.4; tsTarget = 1; tsRate = 0.5; netAlphaTarget = 1;
@@ -316,7 +377,7 @@
     if (!reduced) {
       var leaves = grown.filter(function (n) { return n.seg.leaf; });
       for (var i = 0; i < 12 && leaves.length; i++) {
-        spawnSignal(pick(leaves), { out: true, rgb: types.cervena.rgb, size: 1.8, trail: 10, duration: rand(1.2, 1.8), story: true });
+        spawnSignal(pick(leaves), { out: true, rgb: PAL.red, size: 1.8, trail: 10, duration: rand(1.2, 1.8), story: true });
       }
     }
   }
@@ -342,10 +403,10 @@
         if (s.t < 3) return;
         s.red = pickVisibleNode("cervena", s.green);
         if (!s.red) { s.t = 2.5; return; }
-        showLabel(ui.red, nextLabel("cervene"), types.cervena.rgb);
+        showLabel(ui.red, nextLabel("cervene"), PAL.red);
         s.phase = "redTravel"; s.t = 0;
         if (reduced) arriveRed();
-        else spawnSignal(s.red, { rgb: types.cervena.rgb, size: 3.2, trail: 16, duration: 0.9, story: true, onEnd: arriveRed });
+        else spawnSignal(s.red, { rgb: PAL.red, size: 3.2, trail: 16, duration: 0.9, story: true, onEnd: arriveRed });
         return;
       case "redHold":
         if (s.t < 2.8) return;
@@ -468,7 +529,7 @@
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.globalCompositeOperation = "source-over";
     ctx.globalAlpha = 1;
-    ctx.fillStyle = "#000";
+    ctx.fillStyle = PAL.bg;
     ctx.fillRect(0, 0, W, H);
 
     var P = CONFIG.pulz;
@@ -512,7 +573,7 @@
       ctx.beginPath(); ctx.arc(gs.ex, gs.ey, 3, 0, Math.PI * 2); ctx.fill();
     }
     if (story && story.red && (story.phase === "redTravel" || story.phase === "redHold")) {
-      glow(story.red.seg.ex, story.red.seg.ey, 24, types.cervena.rgb, story.phase === "redTravel" ? 0.8 : 0.4);
+      glow(story.red.seg.ex, story.red.seg.ey, 24, PAL.red, story.phase === "redTravel" ? 0.8 : 0.4);
     }
     if (hover) {
       ctx.strokeStyle = rgba(types[hover.type].rgb, 0.9);
@@ -576,6 +637,7 @@
 
   function build() {
     setupCanvas();
+    makeGrain();
     generate();
     signals = [];
     if (reduced) G = 1e9;

@@ -26,22 +26,41 @@ window.OBSAH = {
   },
 
   chaos: {
-    // Typy obsahu v síti. barva = barva větví a teček, velikost = poloměr tečky
+    // PALETA – všechny barvy scény chaos na jednom místě
+    paleta: {
+      pozadi: "#0A090B",       // teplá černá
+      zrno: 0.06,              // síla filmového zrna a škrábanců (0 = vypnuto)
+      typy: {                  // barvy uzlů a větví podle typu obsahu
+        cervena: "#F2271C",    // extremismus / politika / rage bait
+        zluta:   "#C9E24B",    // reels / virální videa
+        ruzova:  "#F28AA0",    // reklama
+        modra:   "#C21FB4",    // doporučené stránky
+        azurova: "#A98BE6",    // lidé, které možná znáte
+        zelena:  "#22C7B0",    // zajímavé věci (jóga, přednáška, festival, kamarádka)
+      },
+      vypln: ["#2E3FD1", "#6E9A3A"], // výplňové větve bez uzlu (střídají se)
+      stred: "#22C7B0",        // barva středu při zklidnění
+      rudy: "#F2271C",         // rudý signál v příběhu
+      text: "#FFFFFF",         // věta dole
+      zvyrazneni: "#F2271C",   // *zvýrazněné slovo* ve větě dole
+    },
+
+    // Typy obsahu v síti. Barvy jsou v paletě výše, velikost = poloměr tečky
     // (kolik pozornosti to bere), cetnost = jak často se typ v síti objevuje,
     // popisky = co se ukáže po najetí / klepnutí na tečku.
     // Názvy typů (cervena, zelena…) neměň – podle nich funguje příběh.
     typy: {
-      cervena: { barva: "#FF3B3B", velikost: 2.8, cetnost: 22,
+      cervena: { velikost: 2.8, cetnost: 22,
         popisky: ["rage bait", "polarizing post", "political outrage", "misleading headline", "comment war"] },
-      zluta:   { barva: "#FFE14D", velikost: 2.1, cetnost: 22,
+      zluta:   { velikost: 2.1, cetnost: 22,
         popisky: ["reels", "viral video", "trending", "meme", "live video", "celebrity gossip"] },
-      ruzova:  { barva: "#FF7EC8", velikost: 1.9, cetnost: 22,
+      ruzova:  { velikost: 1.9, cetnost: 22,
         popisky: ["ad", "sponsored", "shop now", "crypto ad", "fake discount", "giveaway", "influencer post"] },
-      modra:   { barva: "#4D6BFF", velikost: 1.6, cetnost: 18,
+      modra:   { velikost: 1.6, cetnost: 18,
         popisky: ["suggested for you", "suggested page", "quiz", "horoscope", "game invite", "memories"] },
-      azurova: { barva: "#4DE1FF", velikost: 1.4, cetnost: 14,
+      azurova: { velikost: 1.4, cetnost: 14,
         popisky: ["people you may know", "friend suggestion", "follow suggestion"] },
-      zelena:  { barva: "#3DFF9A", velikost: 1.2, cetnost: 4,
+      zelena:  { velikost: 1.2, cetnost: 4,
         popisky: ["yoga event in Brno", "photo from a friend", "interesting article", "festival", "lecture", "design meetup"] },
     },
 
@@ -52,7 +71,9 @@ window.OBSAH = {
       cervene: ["extremist political content", "rage bait", "misleading headline", "polarizing post", "comment war"],
     },
 
-    vetaDole: "", // věta, která se po 6 s objeví dole – prázdné = žádná věta
+    // věta, která se po 6 s objeví dole – prázdné = žádná věta.
+    // Slovo v *hvězdičkách* se zvýrazní barvou paleta.zvyrazneni.
+    vetaDole: "",
     zpet: "← zpět",
   },
 

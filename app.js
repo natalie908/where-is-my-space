@@ -17,7 +17,24 @@
 
   document.querySelectorAll("#chaos [data-back]").forEach(function (a) { a.textContent = O.chaos.zpet; });
   document.querySelectorAll("#feed [data-back]").forEach(function (a) { a.textContent = O.feed.zpet; });
-  document.getElementById("chaos-line").textContent = O.chaos.vetaDole || "";
+  // věta dole: *slovo* se zvýrazní barvou z palety
+  var chaosLine = document.getElementById("chaos-line");
+  (O.chaos.vetaDole || "").split(/(\*[^*]+\*)/).forEach(function (part) {
+    if (!part) return;
+    if (/^\*[^*]+\*$/.test(part)) {
+      var hl = document.createElement("span");
+      hl.className = "hl";
+      hl.textContent = part.slice(1, -1);
+      chaosLine.appendChild(hl);
+    } else {
+      chaosLine.appendChild(document.createTextNode(part));
+    }
+  });
+  var pal = O.chaos.paleta || {};
+  var chaosScene = document.getElementById("chaos");
+  if (pal.pozadi) chaosScene.style.setProperty("--chaos-bg", pal.pozadi);
+  if (pal.text) chaosScene.style.setProperty("--chaos-text", pal.text);
+  if (pal.zvyrazneni) chaosScene.style.setProperty("--chaos-hl", pal.zvyrazneni);
 
   /* ---------- PNG koláž nad videem ---------- */
 
