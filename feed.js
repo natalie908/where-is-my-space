@@ -74,7 +74,18 @@
   function postCard(p, F) {
     var card = el("article", "card post");
     var head = el("header", "post-head");
-    head.appendChild(el("span", "avatar", initials(p.autor)));
+    var av = el("span", "avatar");
+    if (p.profilovka) {
+      av.classList.add("avatar--pic");
+      var pic = new Image();
+      pic.alt = "";
+      pic.src = p.profilovka;
+      pic.onerror = function () { pic.remove(); av.classList.remove("avatar--pic"); av.textContent = initials(p.autor); };
+      av.appendChild(pic);
+    } else {
+      av.textContent = initials(p.autor);
+    }
+    head.appendChild(av);
     var who = el("div");
     who.appendChild(el("h3", null, p.autor));
     who.appendChild(el("div", "meta", [p.cas, p.kde].filter(Boolean).join(" · ")));
@@ -92,7 +103,6 @@
       img.onerror = function () { wrap.remove(); card.classList.remove("shot"); };
       img.src = p.foto;
       wrap.appendChild(img);
-      if (F.tapBarva) wrap.appendChild(el("span", "shot-hint", F.tapBarva));
       card.appendChild(wrap);
       card.addEventListener("click", function () { card.classList.toggle("is-color"); });
     }
@@ -168,7 +178,8 @@
     up.href = "#";
     up.setAttribute("data-back", "");
     up.appendChild(arrowUp());
-    up.appendChild(el("span", null, F.nahoru || ""));
+    up.setAttribute("aria-label", F.nahoru || F.zpet || "zpět");
+    if (F.nahoru) up.appendChild(el("span", null, F.nahoru));
     end.appendChild(up);
     root.appendChild(end);
   }

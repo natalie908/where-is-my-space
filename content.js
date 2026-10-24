@@ -94,26 +94,27 @@ window.OBSAH = {
         nazev: "Oblíbené",
         popis: "",
         // Příspěvky přepsané ze screenshotů (šablona FB příspěvku).
-        // autor = jméno / stránka, kde = skupina nebo stránka, kde to vyšlo ("" = nic),
+        // autor = jméno / stránka, profilovka = obrázek z images/profilovky/ ("" = iniciály),
+        // kde = skupina nebo stránka, kde to vyšlo ("" = nic),
         // cas = kdy, text = příspěvek, foto = obrázek z images/ ("" = bez fotky),
         // reakce = řádek dole s počtem reakcí a komentářů ("" = nezobrazovat)
         prispevky: [
-          { autor: "Jan Oplatek", kde: "", cas: "13 min",
+          { autor: "Jan Oplatek", profilovka: "images/profilovky/jan-oplatek.jpg", kde: "", cas: "13 min",
             text: "Cesta zpátky do Brna vedla přes Marsu Matruh. Obvykle létáme přes pobřeží u El Alameinu, což je trošku východněji.",
             foto: "images/pobrezi-z-letadla.jpg", reakce: "44 reakcí · 2 komentáře" },
-          { autor: "Co.Labs", kde: "vytvořil(a) událost", cas: "23 h",
+          { autor: "Co.Labs", profilovka: "images/profilovky/colabs.jpg", kde: "vytvořil(a) událost", cas: "23 h",
             text: "Divadlo T-Art: On a Ona – čt 29. 10. v 19:30, CO.LABS, Kounicova 20, Brno. Na motivy díla O. Kobyljanské – „Tvůj jazyk není pro mé uši“.",
             foto: "images/colabs-on-a-ona.jpg", reakce: "" },
-          { autor: "Brain We Are", kde: "", cas: "1 h",
+          { autor: "Brain We Are", profilovka: "images/profilovky/brain-we-are.jpg", kde: "", cas: "1 h",
             text: "Psycholog a matematik Radvan Bahbouh na 333. díle podcastu @brain_we_are…",
             foto: "images/brain-we-are-podcast.jpg", reakce: "" },
-          { autor: "KISK", kde: "vytvořil(a) událost", cas: "1 d",
+          { autor: "KISK", profilovka: "images/profilovky/kisk.jpg", kde: "vytvořil(a) událost", cas: "1 d",
             text: "Komunitní večeře – čt 29. 10. v 18:15, knihovna Na Křižovatce, Brno.",
             foto: "images/kisk-komunitni-vecere.jpg", reakce: "3 reakce" },
-          { autor: "Co.Labs", kde: "přidal(a) událost", cas: "23 h",
+          { autor: "Co.Labs", profilovka: "images/profilovky/colabs.jpg", kde: "přidal(a) událost", cas: "23 h",
             text: "LIMINAL – pá 13. 11. v 19:30, Co.Labs.",
             foto: "images/colabs-liminal.jpg", reakce: "19 lidí to zajímá" },
-          { autor: "Zen Neor", kde: "", cas: "1 d",
+          { autor: "Zen Neor", profilovka: "images/profilovky/zen-neor.jpg", kde: "", cas: "1 d",
             text: "And yet, we still met.",
             foto: "images/zen-neor-ilustrace.jpg", reakce: "" },
         ],
@@ -134,7 +135,6 @@ window.OBSAH = {
     zdarma: "zdarma",
     konec: "", // věta na úplném konci feedu – prázdné = žádná věta
     souradnice: "49°11′N 16°36′E",   // souřadnice (Brno) v hlavičce a na konci
-    nahoru: "zpět na úvod",          // popisek šipky nahoru na konci
-    tapBarva: "klepni = barva",      // nápověda u fotky v příspěvku
+    nahoru: "",          // popisek šipky nahoru na konci ("" = jen šipka)
   },
 };

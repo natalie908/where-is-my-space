@@ -229,7 +229,7 @@ html, body {
   --muted: .7;                          /* průhlednost popisků (čas, zdroj) */
   --shot-veil: .3;                      /* bílý závoj přes screenshoty (0–1) */
   --shot-filter: grayscale(1) contrast(.9) brightness(1.1);
-  --feed-font: "Courier Prime", "IBM Plex Mono", "Courier New", monospace;
+  --feed-font: -apple-system, BlinkMacSystemFont, "Segoe UI Historic", "Segoe UI", Helvetica, Arial, sans-serif; /* písmo Facebooku */
   --line: rgba(255, 255, 255, .9);
 
   background: #1b241c;
@@ -272,7 +272,7 @@ html, body {
   max-width: 520px;
   margin: 0 auto;
   padding: 88px 24px 96px;
-  font-size: 14.5px;
+  font-size: 15px;
   line-height: 1.6;
 }
 
@@ -334,7 +334,7 @@ html, body {
           backdrop-filter: blur(var(--card-blur));
 }
 .card:last-child { margin-bottom: 0; }
-.card h3 { margin: 0; font-size: 15px; font-weight: 700; line-height: 1.35; }
+.card h3 { margin: 0; font-size: 15px; font-weight: 600; line-height: 1.35; }
 .card .meta { font-size: 12px; letter-spacing: .04em; opacity: var(--muted); }
 .card p { margin: 0; }
 
@@ -347,10 +347,13 @@ html, body {
   height: 40px;
   border: 1px solid rgba(255, 255, 255, .8);
   border-radius: 50%;
+  overflow: hidden;
   font-size: 13px;
   font-weight: 700;
   letter-spacing: .04em;
 }
+.avatar--pic { border: 0; }
+.avatar img { display: block; width: 100%; height: 100%; object-fit: cover; }
 .post-text { margin: 0; }
 .post .shot-img { margin-top: 16px; }
 .post-foot { margin-top: 14px; font-size: 12px; letter-spacing: .04em; opacity: .6; }
@@ -392,20 +395,6 @@ html, body {
   transition: opacity 600ms ease;
   pointer-events: none;
 }
-.shot-hint {
-  position: absolute;
-  right: 8px;
-  bottom: 8px;
-  z-index: 1;
-  padding: 2px 8px;
-  background: rgba(0, 0, 0, .35);
-  font-size: 10px;
-  letter-spacing: .12em;
-  text-transform: uppercase;
-  pointer-events: none;
-  transition: opacity 600ms ease;
-}
-.shot.is-color .shot-hint { opacity: 0; }
 .shot.is-color .shot-img img { filter: none; }
 .shot.is-color .shot-img::after { opacity: 0; }
 @media (hover: hover) {
