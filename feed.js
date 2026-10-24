@@ -59,48 +59,28 @@
     return svg(w, h, out, "feed-divider");
   }
 
-  // graf ve tvaru hor: hřeben, základní osa a rysky
-  function mountains(w, h) {
-    var pts = [], n = 28, y;
-    for (var i = 0; i <= n; i++) {
-      var x = i / n * w, t = i / n;
-      y = h * 0.85 - (Math.sin(t * Math.PI) * 0.55 + Math.sin(t * 9 + 1) * 0.12 + Math.sin(t * 23) * 0.05) * h * 0.8;
-      pts.push(f(x) + "," + f(Math.max(4, y)));
-    }
-    var out = '<polyline points="' + pts.join(" ") + '" stroke-width="1"/>';
-    out += '<line x1="0" y1="' + f(h * 0.9) + '" x2="' + w + '" y2="' + f(h * 0.9) + '" stroke-width="1"/>';
-    for (i = 0; i <= 10; i++) {
-      var tx = f(i / 10 * (w - 1) + 0.5);
-      out += '<line x1="' + tx + '" y1="' + f(h * 0.9) + '" x2="' + tx + '" y2="' + f(h * 0.9 + (i % 5 ? 3 : 6)) + '" stroke-width="1"/>';
-    }
-    return svg(w, h, out, "feed-ridge");
-  }
-
   function arrowUp() {
     return svg(14, 22, '<path d="M7 21 V2 M1 8 L7 2 L13 8" stroke-width="1"/>');
   }
 
   /* ---------- karty ---------- */
 
-  function cells(list, cls) {
-    var row = el("div", "cells" + (cls ? " " + cls : ""));
-    list.forEach(function (c) {
-      var cell = el("div", "cell" + (c.wide ? " cell--wide" : ""));
-      if (c.node) cell.appendChild(c.node); else cell.textContent = c.text;
-      row.appendChild(cell);
-    });
-    return row;
+  function initials(name) {
+    var w = name.split(/[\s.\-–]+/).filter(Boolean);
+    return (w.length > 1 ? w[0][0] + w[1][0] : (w[0] || "?").slice(0, 2)).toUpperCase();
   }
 
-  // příspěvek přepsaný ze screenshotu: zdroj | typ, čas | reakce, text, případně fotka
+  // příspěvek jako FB šablona: kolečko s iniciálami, jméno, čas · kde, text, fotka, reakce
   function postCard(p, F) {
     var card = el("article", "card post");
-    card.appendChild(cells([
-      { node: el("h3", null, p.zdroj) },
-      { node: el("span", "pill", p.typ) },
-    ]));
-    card.appendChild(cells([{ text: p.cas }, { text: p.reakce || "—" }], "cells--small"));
-    card.appendChild(cells([{ text: p.text, wide: true }]));
+    var head = el("header", "post-head");
+    head.appendChild(el("span", "avatar", initials(p.autor)));
+    var who = el("div");
+    who.appendChild(el("h3", null, p.autor));
+    who.appendChild(el("div", "meta", [p.cas, p.kde].filter(Boolean).join(" · ")));
+    head.appendChild(who);
+    card.appendChild(head);
+    if (p.text) card.appendChild(el("p", "post-text", p.text));
     if (p.foto) {
       // fotka: vybělená, klepnutí přepne na barvy a zpět
       card.classList.add("shot");
@@ -116,6 +96,7 @@
       card.appendChild(wrap);
       card.addEventListener("click", function () { card.classList.toggle("is-color"); });
     }
+    if (p.reakce) card.appendChild(el("div", "post-foot", p.reakce));
     return card;
   }
 
@@ -127,12 +108,12 @@
 
   function eventCard(a, freeText) {
     var card = el("article", "card event");
-    card.appendChild(cells([
-      { node: el("h3", null, a.nazev) },
-      a.zdarma ? { node: el("span", "pill", freeText) } : { text: "—" },
-    ]));
-    card.appendChild(cells([{ text: a.datum }, { text: a.misto }], "cells--small"));
-    card.appendChild(cells([{ text: a.veta, wide: true }]));
+    var head = el("header", "event-head");
+    head.appendChild(el("h3", null, a.nazev));
+    if (a.zdarma) head.appendChild(el("span", "pill", freeText));
+    card.appendChild(head);
+    card.appendChild(el("div", "meta", [a.datum, a.misto].filter(Boolean).join(" · ")));
+    card.appendChild(el("p", null, a.veta));
     return card;
   }
 
@@ -163,7 +144,6 @@
     if (F.podnadpis) root.appendChild(el("p", "lead", F.podnadpis));
 
     F.sekce.forEach(function (s, i) {
-      if (i > 0) root.appendChild(contours(480, 110));
       var sec = el("section", "feed-section");
       sec.appendChild(el("span", "feed-tag", String(i + 1).padStart(2, "0") + " — " + s.nazev));
       if (s.popis) sec.appendChild(el("p", null, s.popis));
@@ -180,7 +160,7 @@
     });
 
     var end = el("footer", "feed-end");
-    end.appendChild(mountains(480, 60));
+    end.appendChild(contours(480, 110));
     end.appendChild(el("div", "rule"));
     if (F.konec) end.appendChild(el("p", null, F.konec));
     if (F.souradnice) end.appendChild(el("div", "coords", F.souradnice));
