@@ -87,7 +87,7 @@ window.OBSAH = {
       {
         nazev: "Oblíbené",
         popis: "",
-        screenshoty: ["screenshots/oblibene-1.png", "screenshots/oblibene-2.png"],
+        screenshoty: ["screenshots/oblibene-1.jpg", "screenshots/oblibene-2.jpg", "screenshots/oblibene-3.jpg"],
       },
       {
         nazev: "Skupiny",
@@ -97,7 +97,7 @@ window.OBSAH = {
       {
         nazev: "Události",
         popis: "",
-        screenshoty: ["screenshots/udalosti-1.png"],
+        screenshoty: ["screenshots/udalosti-1.jpg", "screenshots/udalosti-2.jpg", "screenshots/udalosti-3.jpg"],
       },
       {
         nazev: "Akce týdne (agent)",
