@@ -19,34 +19,54 @@
     signalRychlost: 140, // rychlost signálů (px/s)
     pulz: 0.12,          // síla pulzování (0–1)
     pauza: [1.5, 3.5],   // pauza mezi příběhy (s); celý příběh trvá ~10 s
-    maxTextura: 2600,    // max. rozlišení vrstvy sítě v px (paměť / ostrost)
+
+    // --- neklid sítě (všechno se násobí chaosLevel 0–1) ---
+    vlneni: 12,          // vlnění: posun konců větví v px při chaosLevel 1 (na okraji sítě)
+    ohyb: 0.18,          // vlnění: prohnutí větve (podíl její délky) při chaosLevel 1
+    vlneniRychlost: 0.35,// jak rychle se větve vlní
+    chveni: 1.5,         // chvění (jitter) v px při chaosLevel 1
+    chveniRychlost: 9,   // jak rychle se chvějí (vyšší = nervóznější)
+    stred: 0.15,         // kolik pohybu mají větve u středu oproti okraji (0–1)
+    chaosBezny: 0.5,     // běžný chaosLevel
+    chaosZeleny: 0.1,    // chaosLevel ve zelené chvilce
+    chaosRudy: 1.0,      // chaosLevel po rudém signálu (pak pomalu klesá)
   };
 
-  var STEPS = 6; // na kolik úseků se každá křivka dělí
-
   var canvas, ctx, cfg, raf = null, last = 0, time = 0, pulseT = 0;
-  var W = 0, H = 0, dpr = 1, R = 0, offScale = 1, sc = 1;
-  var linesCv, dotsCv, lctx, dctx;
+  var W = 0, H = 0, dpr = 1, R = 0, sc = 1;
   var types = {}, typeKeys = [];
-  var segs = [], grown = [], G = 0, extraBudget = 0;
+  var segs = [], grown = [], buckets = [], bucketMap = {}, G = 0, extraBudget = 0;
   var rot = 0, ts = 1, tsTarget = 1, tsRate = 1.5, netAlpha = 1, netAlphaTarget = 1, growBoost = 0;
+  var chaosLevel = 0.5, chaosTarget = 0.5, chaosRate = 1;
+  var waveT = 0, jitT = 0;
   var signals = [], signalTarget = 0;
   var center = { c: [255, 255, 255], a: 0.12, tc: [255, 255, 255], ta: 0.12 };
   var story = null, storyIdx = { zelene: 0, cervene: 0 };
   var reduced = false;
   var ui = null;
   var pointer = { x: 0, y: 0, has: false }, hover = null, tapUntil = 0, frameNo = 0;
-  var perf = { n: 0, sum: 0, checked: 0 };
+  var perf = { n: 0, sum: 0, checked: 0 }, noiseEvery = 1;
 
   /* ---------- pomocné ---------- */
 
   function rand(a, b) { return a + Math.random() * (b - a); }
   function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
-  function rgba(c, a) { return "rgba(" + c[0] + "," + c[1] + "," + c[2] + "," + a + ")"; }
+  function rgba(c, a) { return "rgba(" + Math.round(c[0]) + "," + Math.round(c[1]) + "," + Math.round(c[2]) + "," + a + ")"; }
   function hexRgb(h) { var n = parseInt(h.replace("#", ""), 16); return [n >> 16, (n >> 8) & 255, n & 255]; }
-  function lerpAngle(a, b, t) {
-    var d = Math.atan2(Math.sin(b - a), Math.cos(b - a));
-    return a + d * t;
+  function lerpAngle(a, b, t) { return a + Math.atan2(Math.sin(b - a), Math.cos(b - a)) * t; }
+
+  // 1D Perlinův šum – plynulé hodnoty zhruba v rozsahu −1…1
+  var PERM = new Uint8Array(512), GRAD = new Float32Array(256);
+  (function () {
+    var p = [];
+    for (var i = 0; i < 256; i++) { p.push(i); GRAD[i] = Math.random() * 2 - 1; }
+    for (i = 255; i > 0; i--) { var j = Math.floor(Math.random() * (i + 1)), t = p[i]; p[i] = p[j]; p[j] = t; }
+    for (i = 0; i < 512; i++) PERM[i] = p[i & 255];
+  })();
+  function noise(x) {
+    var i = Math.floor(x), f = x - i, u = f * f * (3 - 2 * f);
+    var a = GRAD[PERM[i & 255]] * f, b = GRAD[PERM[(i + 1) & 255]] * (f - 1);
+    return (a + (b - a) * u) * 2;
   }
 
   function setupTypes() {
@@ -66,8 +86,6 @@
     return keys[0];
   }
 
-  /* ---------- plátna ---------- */
-
   function setupCanvas() {
     dpr = Math.min(window.devicePixelRatio || 1, 2);
     W = canvas.clientWidth;
@@ -75,50 +93,58 @@
     canvas.width = Math.round(W * dpr);
     canvas.height = Math.round(H * dpr);
     R = Math.hypot(W, H) / 2 * 1.04;
-    offScale = Math.min(dpr, CONFIG.maxTextura / (2 * R));
-    var size = Math.ceil(2 * R * offScale);
-    linesCv = linesCv || document.createElement("canvas");
-    dotsCv = dotsCv || document.createElement("canvas");
-    linesCv.width = linesCv.height = dotsCv.width = dotsCv.height = size;
-    lctx = linesCv.getContext("2d");
-    dctx = dotsCv.getContext("2d");
-    [lctx, dctx].forEach(function (c) { c.setTransform(offScale, 0, 0, offScale, R * offScale, R * offScale); });
-    lctx.lineCap = "butt";
-    lctx.lineJoin = "round";
   }
 
   /* ---------- generování sítě ---------- */
+
+  // čáry se kreslí po skupinách (stejná barva + tloušťka) – jeden tah na skupinu
+  function addToBucket(s, key) {
+    var b = bucketMap[key];
+    if (!b) {
+      b = bucketMap[key] = { rgb: types[s.type].rgb, alpha: s.alpha, width: s.width, list: [] };
+      buckets.push(b);
+    }
+    b.list.push(s);
+  }
 
   function makeSeg(parent, x0, y0, a, len, depth, type, start) {
     var x1 = x0 + Math.cos(a) * len, y1 = y0 + Math.sin(a) * len;
     var bend = rand(-CONFIG.zakriveni, CONFIG.zakriveni) * len;
     var cx = (x0 + x1) / 2 - Math.sin(a) * bend, cy = (y0 + y1) / 2 + Math.cos(a) * bend;
-    var pts = [], cum = [0];
-    for (var i = 0; i <= STEPS; i++) {
-      var t = i / STEPS, u = 1 - t;
-      pts.push([u * u * x0 + 2 * u * t * cx + t * t * x1, u * u * y0 + 2 * u * t * cy + t * t * y1]);
-      if (i) cum.push(cum[i - 1] + Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]));
+    // délka quadratické křivky (dost přesně pro tempo signálů)
+    var L = 0, px = x0, py = y0;
+    for (var i = 1; i <= 6; i++) {
+      var t = i / 6, u = 1 - t;
+      var qx = u * u * x0 + 2 * u * t * cx + t * t * x1, qy = u * u * y0 + 2 * u * t * cy + t * t * y1;
+      L += Math.hypot(qx - px, qy - py); px = qx; py = qy;
     }
-    var L = cum[STEPS];
+    var dist = Math.hypot(x1, y1);
+    var radial = Math.min(1, dist / R);
     return {
-      pts: pts, cum: cum, len: L, a: Math.atan2(y1 - cy, x1 - cx), x1: x1, y1: y1,
+      x0: x0, y0: y0, cx: cx, cy: cy, x1: x1, y1: y1,
+      len: L, a: Math.atan2(y1 - cy, x1 - cx), nx: -Math.sin(a), ny: Math.cos(a),
       depth: depth, parent: parent, type: type,
-      width: Math.max(0.5, 1.5 - depth * 0.09),
-      alpha: Math.max(0.28, 0.62 - depth * 0.025),
+      width: Math.max(0.5, 1.5 - Math.min(depth, 12) * 0.08),
+      alpha: Math.max(0.28, 0.62 - Math.min(depth, 12) * 0.028),
       start: start != null ? start : (parent ? parent.start + parent.dur : rand(0, 0.4)),
       dur: L / CONFIG.rustRychlost,
-      drawn: 0, done: false, leaf: true, node: null,
+      // pohyb: každá větev má vlastní fázi a rychlost
+      seed: Math.random() * 200, spd: rand(0.6, 1.5),
+      amp: CONFIG.stred + (1 - CONFIG.stred) * radial,
+      // aktuální (rozvlněná) poloha
+      sx: x0, sy: y0, qx: cx, qy: cy, ex: x1, ey: y1,
+      started: false, done: false, leaf: true, node: null,
     };
   }
 
   function makeNode(s) {
     var t = s.type;
     if (s.leaf && Math.random() * 100 < types.zelena.weight) t = "zelena";
-    s.node = { x: s.x1, y: s.y1, type: t, r: types[t].size * (s.leaf ? 1 : 0.55), seg: s, label: pick(types[t].labels) };
+    s.node = { type: t, r: types[t].size * (s.leaf ? 1 : 0.55), seg: s, label: pick(types[t].labels) };
   }
 
   function generate() {
-    segs = []; grown = [];
+    segs = []; grown = []; buckets = []; bucketMap = {};
     var max = W * H > 700000 ? CONFIG.uzlyDesktop : CONFIG.uzlyMobil;
     extraBudget = Math.round(max * 0.35);
     var L0 = R / 5.2, queue = [], n = CONFIG.korenu;
@@ -140,73 +166,62 @@
       }
     }
     segs.forEach(function (s) { if (s.parent) s.parent.leaf = false; });
-    segs.forEach(makeNode);
+    segs.forEach(function (s) { makeNode(s); addToBucket(s, s.type + "|" + Math.min(s.depth, 12)); });
   }
 
   // při „nárazu“ síť zhoustne – z existujících uzlů vyraší nové výhonky
   function sprout(count) {
     if (reduced) return;
     for (var i = 0; i < count && extraBudget > 0 && grown.length; i++) {
-      var n = pick(grown), p = n.seg;
+      var p = pick(grown).seg;
       if (p.depth < 2) continue;
       var type = Math.random() < 0.5 ? "cervena" : p.type;
-      var s = makeSeg(p, n.x, n.y, p.a + rand(-1, 1), p.len * rand(0.4, 0.8), p.depth + 1, type, G + rand(0, 0.8));
+      var s = makeSeg(p, p.x1, p.y1, p.a + rand(-1, 1), p.len * rand(0.4, 0.8), p.depth + 1, type, G + rand(0, 0.8));
       s.alpha = Math.min(0.7, s.alpha + 0.1);
       makeNode(s);
       segs.push(s);
+      addToBucket(s, s.type + "|s" + Math.min(s.depth, 12));
       extraBudget--;
     }
   }
 
-  /* ---------- růst (kreslí se jen nové kousky do vrstvy) ---------- */
+  /* ---------- růst + vlnění ---------- */
 
-  function interp(s, f) {
-    var i = Math.floor(f);
-    if (i >= STEPS) return s.pts[STEPS];
-    var t = f - i, a = s.pts[i], b = s.pts[i + 1];
-    return [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
-  }
-
-  function drawNode(n) {
-    var c = types[n.type].rgb;
-    dctx.fillStyle = rgba(c, 0.16);
-    dctx.beginPath(); dctx.arc(n.x, n.y, n.r * 2.8, 0, Math.PI * 2); dctx.fill();
-    dctx.fillStyle = rgba(c, 0.95);
-    dctx.beginPath(); dctx.arc(n.x, n.y, n.r, 0, Math.PI * 2); dctx.fill();
-  }
-
-  function grow(dG) {
-    G += dG;
+  function grow() {
     for (var k = 0; k < segs.length; k++) {
       var s = segs[k];
-      if (s.done || G <= s.start) continue;
-      var p = Math.min(1, (G - s.start) / s.dur), f = p * STEPS;
-      if (f <= s.drawn) continue;
-      lctx.strokeStyle = rgba(types[s.type].rgb, s.alpha);
-      lctx.lineWidth = s.width;
-      lctx.beginPath();
-      var a = interp(s, s.drawn);
-      lctx.moveTo(a[0], a[1]);
-      for (var i = Math.floor(s.drawn) + 1; i < f; i++) lctx.lineTo(s.pts[i][0], s.pts[i][1]);
-      var b = interp(s, f);
-      lctx.lineTo(b[0], b[1]);
-      lctx.stroke();
-      s.drawn = f;
-      if (p >= 1) { s.done = true; drawNode(s.node); grown.push(s.node); }
+      if (!s.started && G > s.start) s.started = true;
+      if (s.started && !s.done && G >= s.start + s.dur) { s.done = true; grown.push(s.node); }
     }
+  }
+
+  // posune konce a řídicí body všech větví podle šumu (rodiče jsou v poli vždy dřív než děti)
+  function deform() {
+    var wAmp = CONFIG.vlneni * chaosLevel * (reduced ? 0.3 : 1);
+    var bAmp = CONFIG.ohyb * chaosLevel * (reduced ? 0.3 : 1);
+    var jAmp = reduced ? 0 : CONFIG.chveni * chaosLevel;
+    for (var k = 0; k < segs.length; k++) {
+      var s = segs[k];
+      if (!s.started) continue;
+      if (s.parent) { s.sx = s.parent.ex; s.sy = s.parent.ey; }
+      var tw = waveT * s.spd + s.seed, tj = jitT * s.spd + s.seed * 3;
+      var dx = noise(tw) * wAmp, dy = noise(tw + 71.3) * wAmp;
+      if (jAmp) { dx += noise(tj) * jAmp; dy += noise(tj + 37.7) * jAmp; }
+      s.ex = s.x1 + dx * s.amp;
+      s.ey = s.y1 + dy * s.amp;
+      var b = noise(tw * 1.3 + 113.1) * bAmp * s.len * s.amp;
+      if (jAmp) b += noise(tj * 1.2 + 91.9) * jAmp * 0.8;
+      s.qx = s.cx + (s.sx - s.x0 + s.ex - s.x1) / 2 + s.nx * b;
+      s.qy = s.cy + (s.sy - s.y0 + s.ey - s.y1) / 2 + s.ny * b;
+    }
+  }
+
+  function bez(s, t) {
+    var u = 1 - t;
+    return [u * u * s.sx + 2 * u * t * s.qx + t * t * s.ex, u * u * s.sy + 2 * u * t * s.qy + t * t * s.ey];
   }
 
   /* ---------- signály ---------- */
-
-  function pointAt(s, d) {
-    for (var j = 1; j <= STEPS; j++) {
-      if (s.cum[j] >= d) {
-        var t = (d - s.cum[j - 1]) / ((s.cum[j] - s.cum[j - 1]) || 1), a = s.pts[j - 1], b = s.pts[j];
-        return [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
-      }
-    }
-    return s.pts[STEPS];
-  }
 
   function inwardPath(seg) { var p = []; while (seg) { p.push(seg); seg = seg.parent; } return p; }
   function pathLen(p) { return p.reduce(function (s, x) { return s + x.len; }, 0); }
@@ -234,8 +249,8 @@
       }
     }
     if (!sig.done) {
-      var seg = sig.path[sig.i];
-      sig.trail.push(pointAt(seg, sig.out ? sig.d : seg.len - sig.d));
+      var seg = sig.path[sig.i], t = sig.d / (seg.len || 1);
+      sig.trail.push(bez(seg, sig.out ? t : 1 - t));
       if (sig.trail.length > sig.trailLen) sig.trail.shift();
     }
   }
@@ -256,6 +271,7 @@
     var c = Math.cos(rot), s = Math.sin(rot);
     return [W / 2 + (x * c - y * s) * sc, H / 2 + (x * s + y * c) * sc];
   }
+  function nodeScreen(n) { return toScreen(n.seg.ex, n.seg.ey); }
 
   function nextLabel(list) {
     var arr = cfg.pribeh[list] || [];
@@ -265,15 +281,14 @@
 
   function pickVisibleNode(type, avoid) {
     var m = Math.min(W, H), best = [], fallback = [];
+    var q = avoid ? nodeScreen(avoid) : null;
     grown.forEach(function (n) {
-      var p = toScreen(n.x, n.y), dx = p[0] - W / 2, dy = p[1] - H / 2, d = Math.hypot(dx, dy);
+      var p = nodeScreen(n), dx = p[0] - W / 2, dy = p[1] - H / 2, d = Math.hypot(dx, dy);
       if (p[0] < 80 || p[0] > W - 80 || p[1] < 80 || p[1] > H - 80) return;
       if (d < m * 0.2 || d > m * 0.46) return;
-      if (avoid) {
-        var q = toScreen(avoid.x, avoid.y);
-        var diff = Math.abs(Math.atan2(Math.sin(Math.atan2(dy, dx) - Math.atan2(q[1] - H / 2, q[0] - W / 2)),
-          Math.cos(Math.atan2(dy, dx) - Math.atan2(q[1] - H / 2, q[0] - W / 2))));
-        if (diff < 1.4) return;
+      if (q) {
+        var diff = Math.atan2(dy, dx) - Math.atan2(q[1] - H / 2, q[0] - W / 2);
+        if (Math.abs(Math.atan2(Math.sin(diff), Math.cos(diff))) < 1.4) return;
       }
       (n.type === type ? best : fallback).push(n);
     });
@@ -286,6 +301,7 @@
     story.phase = "calm"; story.t = 0;
     center.tc = types.zelena.rgb; center.ta = 0.6;
     tsTarget = 0.25; tsRate = 1.2; netAlphaTarget = 0.7;
+    chaosTarget = CONFIG.chaosZeleny; chaosRate = 1.2;
   }
 
   function arriveRed() {
@@ -294,6 +310,7 @@
     center.tc = [255, 255, 255]; center.ta = 0.12;
     hideLabel(ui.green); story.green = null;
     ts = reduced ? 1 : 2.4; tsTarget = 1; tsRate = 0.5; netAlphaTarget = 1;
+    chaosLevel = CONFIG.chaosRudy; chaosTarget = CONFIG.chaosBezny; chaosRate = 0.25;
     growBoost = 2.5;
     sprout(70);
     if (!reduced) {
@@ -357,7 +374,7 @@
   function hideLabel(el) { el.classList.remove("is-visible"); }
 
   function placeLabel(el, n) {
-    var p = toScreen(n.x, n.y), right = p[0] < W - 220;
+    var p = nodeScreen(n), right = p[0] < W - 220;
     el.style.transform = "translate(" + Math.round(p[0] + (right ? 14 : -14)) + "px," + Math.round(p[1]) + "px) translate(" + (right ? "0" : "-100%") + ",-50%)";
   }
 
@@ -369,7 +386,7 @@
     var lx = dx * c - dy * s, ly = dx * s + dy * c;
     var best = null, bd = maxDist / sc;
     for (var i = 0; i < grown.length; i++) {
-      var n = grown[i], d = Math.hypot(n.x - lx, n.y - ly);
+      var n = grown[i], d = Math.hypot(n.seg.ex - lx, n.seg.ey - ly);
       if (d < bd) { bd = d; best = n; }
     }
     return best;
@@ -405,6 +422,48 @@
     ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
   }
 
+  function drawLines(alpha) {
+    for (var b = 0; b < buckets.length; b++) {
+      var bk = buckets[b], any = false;
+      ctx.beginPath();
+      for (var i = 0; i < bk.list.length; i++) {
+        var s = bk.list[i];
+        if (!s.started) continue;
+        any = true;
+        ctx.moveTo(s.sx, s.sy);
+        if (s.done) ctx.quadraticCurveTo(s.qx, s.qy, s.ex, s.ey);
+        else {
+          // rostoucí větev: první část křivky (de Casteljau)
+          var p = Math.min(1, (G - s.start) / s.dur), e = bez(s, p);
+          ctx.quadraticCurveTo(s.sx + (s.qx - s.sx) * p, s.sy + (s.qy - s.sy) * p, e[0], e[1]);
+        }
+      }
+      if (!any) continue;
+      ctx.strokeStyle = rgba(bk.rgb, bk.alpha * alpha);
+      ctx.lineWidth = bk.width;
+      ctx.stroke();
+    }
+  }
+
+  function drawDots(alpha) {
+    var byType = {};
+    for (var i = 0; i < grown.length; i++) {
+      var n = grown[i];
+      (byType[n.type] || (byType[n.type] = [])).push(n);
+    }
+    Object.keys(byType).forEach(function (k) {
+      var list = byType[k], c = types[k].rgb, j, n;
+      ctx.fillStyle = rgba(c, 0.16 * alpha);
+      ctx.beginPath();
+      for (j = 0; j < list.length; j++) { n = list[j]; ctx.moveTo(n.seg.ex + n.r * 2.8, n.seg.ey); ctx.arc(n.seg.ex, n.seg.ey, n.r * 2.8, 0, Math.PI * 2); }
+      ctx.fill();
+      ctx.fillStyle = rgba(c, 0.95 * alpha);
+      ctx.beginPath();
+      for (j = 0; j < list.length; j++) { n = list[j]; ctx.moveTo(n.seg.ex + n.r, n.seg.ey); ctx.arc(n.seg.ex, n.seg.ey, n.r, 0, Math.PI * 2); }
+      ctx.fill();
+    });
+  }
+
   function draw() {
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.globalCompositeOperation = "source-over";
@@ -417,13 +476,11 @@
     ctx.translate(W / 2, H / 2);
     ctx.rotate(rot);
     ctx.scale(sc, sc);
+    ctx.lineCap = "round";
 
-    ctx.globalAlpha = netAlpha * (1 - P + P * Math.sin(pulseT * 1.3));
-    ctx.drawImage(linesCv, -R, -R, 2 * R, 2 * R);
+    drawLines(netAlpha * (1 - P + P * Math.sin(pulseT * 1.3)));
     ctx.globalCompositeOperation = "lighter";
-    ctx.globalAlpha = netAlpha * (1 - P + P * Math.sin(pulseT * 1.9 + 1.2));
-    ctx.drawImage(dotsCv, -R, -R, 2 * R, 2 * R);
-    ctx.globalAlpha = 1;
+    drawDots(netAlpha * (1 - P + P * Math.sin(pulseT * 1.9 + 1.2)));
 
     // signály
     signals.forEach(function (s) {
@@ -449,18 +506,18 @@
 
     // zvýrazněné uzly příběhu
     if (story && story.green) {
-      var gp = 0.5 + 0.5 * Math.sin(time * 4);
-      glow(story.green.x, story.green.y, 18 + gp * 6, types.zelena.rgb, 0.55);
+      var gs = story.green.seg, gp = 0.5 + 0.5 * Math.sin(time * 4);
+      glow(gs.ex, gs.ey, 18 + gp * 6, types.zelena.rgb, 0.55);
       ctx.fillStyle = rgba(types.zelena.rgb, 1);
-      ctx.beginPath(); ctx.arc(story.green.x, story.green.y, 3, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(gs.ex, gs.ey, 3, 0, Math.PI * 2); ctx.fill();
     }
     if (story && story.red && (story.phase === "redTravel" || story.phase === "redHold")) {
-      glow(story.red.x, story.red.y, 24, types.cervena.rgb, story.phase === "redTravel" ? 0.8 : 0.4);
+      glow(story.red.seg.ex, story.red.seg.ey, 24, types.cervena.rgb, story.phase === "redTravel" ? 0.8 : 0.4);
     }
     if (hover) {
       ctx.strokeStyle = rgba(types[hover.type].rgb, 0.9);
       ctx.lineWidth = 1;
-      ctx.beginPath(); ctx.arc(hover.x, hover.y, hover.r + 5, 0, Math.PI * 2); ctx.stroke();
+      ctx.beginPath(); ctx.arc(hover.seg.ex, hover.seg.ey, hover.r + 5, 0, Math.PI * 2); ctx.stroke();
     }
     ctx.globalCompositeOperation = "source-over";
 
@@ -477,28 +534,37 @@
     var dt = Math.min(0.05, (now - last) / 1000 || 0);
     last = now; time += dt; frameNo++;
 
-    // když to nestíhá 45 fps, ubereme signály
-    if (time > 1 && perf.checked < 2) {
+    // když to nestíhá ~45 fps: nejdřív méně signálů, pak šum jen každý druhý snímek
+    if (time > 1 && perf.checked < 3) {
       perf.n++; perf.sum += dt;
       if (perf.n >= 120) {
-        if (perf.sum / perf.n > 1 / 45) signalTarget = Math.round(signalTarget * 0.5);
+        if (perf.sum / perf.n > 1 / 45) {
+          if (perf.checked === 0) signalTarget = Math.round(signalTarget * 0.5);
+          else noiseEvery = 2;
+        }
         perf.n = 0; perf.sum = 0; perf.checked++;
       }
     }
 
     ts = ease(ts, tsTarget, tsRate, dt);
     netAlpha = ease(netAlpha, netAlphaTarget, 1.5, dt);
+    chaosLevel = ease(chaosLevel, chaosTarget, chaosRate, dt);
     growBoost *= Math.exp(-0.7 * dt);
     for (var i = 0; i < 3; i++) center.c[i] = ease(center.c[i], center.tc[i], 2, dt);
     center.a = ease(center.a, center.ta, 1.2, dt);
 
     if (reduced) {
       pulseT += dt * 0.35;
+      waveT += dt * CONFIG.vlneniRychlost * 0.4;
     } else {
       rot += CONFIG.rotace * ts * dt;
       pulseT += dt * ts;
-      grow(dt * (1 + growBoost) * ts);
+      waveT += dt * CONFIG.vlneniRychlost * (0.5 + chaosLevel);
+      jitT += dt * CONFIG.chveniRychlost * (0.4 + chaosLevel);
+      G += dt * (1 + growBoost) * ts;
     }
+    grow();
+    if (frameNo % noiseEvery === 0) deform();
     stepStory(dt);
     updateSignals(dt);
     updateHover();
@@ -512,8 +578,9 @@
     setupCanvas();
     generate();
     signals = [];
-    if (reduced) grow(1e9);
-    else { var g = G; G = 0; grow(g); }
+    if (reduced) G = 1e9;
+    grow();
+    deform();
   }
 
   function onResize() {
@@ -531,9 +598,11 @@
     if (!ui) ui = { green: makeLabel("chaos-label--story"), red: makeLabel("chaos-label--story"), hover: makeLabel() };
     setupTypes();
     G = 0; rot = 0; ts = 1; tsTarget = 1; netAlpha = netAlphaTarget = 1; time = 0; pulseT = 0;
+    waveT = 0; jitT = 0; noiseEvery = 1;
+    chaosLevel = chaosTarget = CONFIG.chaosBezny; chaosRate = 1;
     growBoost = reduced ? 0 : 4;
     center.c = [255, 255, 255]; center.a = 0.12; center.tc = [255, 255, 255]; center.ta = 0.12;
-    signalTarget = W * H > 700000 || canvas.clientWidth * canvas.clientHeight > 700000 ? CONFIG.signaly : Math.round(CONFIG.signaly / 2);
+    signalTarget = canvas.clientWidth * canvas.clientHeight > 700000 ? CONFIG.signaly : Math.round(CONFIG.signaly / 2);
     perf = { n: 0, sum: 0, checked: 0 };
     hover = null; tapUntil = 0;
     build();
