@@ -17,7 +17,22 @@
 
   document.querySelectorAll("#chaos [data-back]").forEach(function (a) { a.textContent = O.chaos.zpet; });
   document.querySelectorAll("#feed [data-back]").forEach(function (a) { a.textContent = O.feed.zpet; });
-  document.getElementById("chaos-line").textContent = O.chaos.vetaDole;
+  document.getElementById("chaos-line").textContent = O.chaos.vetaDole || "";
+
+  /* ---------- PNG koláž nad videem ---------- */
+
+  var overlay = document.getElementById("overlay");
+  function checkOverlay() {
+    var ratio = overlay.naturalWidth / overlay.naturalHeight;
+    if (Math.abs(ratio - VIDEO_W / VIDEO_H) > 0.01) {
+      console.warn("kolaz.png má jiný poměr stran (" + overlay.naturalWidth + " × " + overlay.naturalHeight +
+        ") než video (" + VIDEO_W + " × " + VIDEO_H + ") – nebude přesně sedět.");
+    }
+  }
+  overlay.addEventListener("error", function () { overlay.classList.add("is-missing"); });
+  if (overlay.complete && !overlay.naturalWidth) overlay.classList.add("is-missing");
+  else if (overlay.complete) checkOverlay();
+  else overlay.addEventListener("load", checkOverlay);
   window.Feed.render(document.getElementById("feed-content"), O.feed);
 
   /* ---------- klikací oblasti ---------- */
@@ -192,7 +207,7 @@
     var line = document.getElementById("chaos-line");
     clearTimeout(show.lineTimer);
     line.classList.remove("is-visible");
-    if (name === "chaos") show.lineTimer = setTimeout(function () { line.classList.add("is-visible"); }, 6000);
+    if (name === "chaos" && line.textContent) show.lineTimer = setTimeout(function () { line.classList.add("is-visible"); }, 6000);
 
     if (name === "feed") document.getElementById("feed").scrollTop = 0;
   }

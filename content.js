@@ -74,7 +74,7 @@ window.OBSAH = {
       { text: "lecture" },
       { text: "design meetup" },
     ],
-    vetaDole: "Takhle jsem se cítila, když jsem otevřela Facebook.",
+    vetaDole: "", // věta, která se po 6 s objeví dole – prázdné = žádná věta
     zpet: "← zpět",
   },
 

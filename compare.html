@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="cs">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Porovnání smyček</title>
+  <style>
+    body { margin: 0; padding: 24px 16px; background: #111; color: #fff; font: 14px/1.5 system-ui, sans-serif; }
+    h1 { font-size: 18px; margin: 0 0 4px; }
+    p { margin: 0 0 20px; opacity: .7; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; }
+    figure { margin: 0; }
+    video { display: block; width: 100%; }
+    figcaption { margin-top: 6px; }
+  </style>
+</head>
+<body>
+  <h1>Porovnání smyček</h1>
+  <p>Sleduj hlavně prachové tečky a mlhu dole vlevo v okamžiku, kdy video začíná znovu.</p>
+  <div class="grid">
+    <figure>
+      <video src="strom-loop.mp4" autoplay muted loop playsinline></video>
+      <figcaption><b>ping-pong</b> (strom-loop.mp4) – 9,7 s, dopředu + pozpátku</figcaption>
+    </figure>
+    <figure>
+      <video src="strom-crossfade.mp4" autoplay muted loop playsinline></video>
+      <figcaption><b>prolnutí</b> (strom-crossfade.mp4) – 3,9 s, poslední 1 s se prolne do začátku</figcaption>
+    </figure>
+    <figure>
+      <video src="strom.mp4" autoplay muted loop playsinline></video>
+      <figcaption><b>originál</b> (strom.mp4) – pro srovnání, se skokem</figcaption>
+    </figure>
+  </div>
+</body>
+</html>

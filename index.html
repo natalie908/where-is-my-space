@@ -17,9 +17,10 @@
     <div class="intro-backdrop" aria-hidden="true"></div>
     <div class="stage" id="stage">
       <video id="video" autoplay muted loop playsinline preload="auto" poster="strom-poster.jpg">
-        <source src="strom-web.mp4" type="video/mp4">
-        <source src="strom.mp4" type="video/mp4">
+        <source src="strom-crossfade.mp4" type="video/mp4">
       </video>
+      <!-- ostrá vrstva koláže (text, kolo…) – stačí nahrát kolaz.png, jinak se nic nestane -->
+      <img class="overlay" id="overlay" src="kolaz.png" alt="" aria-hidden="true">
       <button class="hotspot hotspot--sun" data-target="chaos" data-key="slunce"></button>
       <button class="hotspot hotspot--planet" data-target="feed" data-key="planetka"></button>
     </div>
