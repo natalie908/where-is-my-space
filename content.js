@@ -110,6 +110,9 @@ window.OBSAH = {
 
     prazdnaKarta: "sem přijde screenshot",
     zdarma: "zdarma",
-    konec: "", // věta na úplném konci feedu – prázdné = žádný konec
+    konec: "To je vše. Můžeš jít ven.", // věta na úplném konci feedu – prázdné = žádný konec
+    souradnice: "49°11′N 16°36′E",   // souřadnice (Brno) v hlavičce a na konci
+    nahoru: "zpět na úvod",          // popisek šipky nahoru na konci
+    tapBarva: "klepni = barva",      // nápověda na liště screenshotu
   },
 };

@@ -15,7 +15,8 @@ Studijní prototyp k digitálnímu wellbeingu. Statická stránka (HTML + CSS + 
 | `content.js` | všechny texty + polohy klikacích oblastí |
 | `app.js` | úvodní scéna, přepínání scén, režim `?edit` |
 | `chaos.js` | scéna chaos (neuronová síť) – technické ladění v bloku CONFIG nahoře |
-| `feed.js` | scéna feed |
+| `feed.js` | scéna feed (karty, vrstevnice, kompas, horský graf) |
+| `les.jpg` | fotka na pozadí feedu |
 | `strom.mp4` | původní video (3718 × 2230, 5 s) – stránka ho nepoužívá, je to zdroj |
 | `strom-crossfade.mp4` | **video na stránce**: smyčka s prolnutím, 1920 px, bez zvuku |
 | `strom-loop.mp4` | alternativní smyčka ping-pong (dopředu + pozpátku) |
